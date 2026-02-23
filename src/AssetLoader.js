@@ -6,16 +6,12 @@ export default class AssetLoader {
     async loadAll() {
         const promises = [];
 
-        // 1. Load the Big Sprite Sheets
-        // We assume the file is named 'mascaras.png'
         await this.loadSpriteSheet('./spanish_deck/barallamini.png', 'cards');
         await this.loadSpriteSheet('./spanish_deck/mascaras.png', 'masks');
 
-        // 2. Load the single Back image
         promises.push(this.loadImage('back', `./spanish_deck/baralladorso.png`));
         promises.push(this.loadImage('board_disabled', `./spanish_deck/taboleiro.png`));
         promises.push(this.loadImage('board', `./spanish_deck/taboleirod.png`));
-        const fontLoad = new FontFace('Minipixel', 'url(./spanish_deck/Minipixel.ttf');
         promises.push(this.loadImage('menu_bg', `./spanish_deck/menuEstatico.png`));
         promises.push(this.loadImage('btn_normal', './spanish_deck/btnMenuNormal.png'));
         promises.push(this.loadImage('btn_hover', './spanish_deck/btnMenuHover.png'));
@@ -24,6 +20,8 @@ export default class AssetLoader {
         promises.push(this.loadImage('flush_hover', './spanish_deck/flush/flush2.png'));
         promises.push(this.loadImage('flush_pressed', './spanish_deck/flush/flush3.png'));
         promises.push(this.loadImage('flush_disabled', './spanish_deck/flush/flush4.png'));
+
+        const fontLoad = new FontFace('Minipixel', 'url(./spanish_deck/Minipixel.ttf');
         
         // Add the font promise to our waiting list
         promises.push(
@@ -64,7 +62,7 @@ export default class AssetLoader {
             };
             spriteSheet.onerror = () => {
                 console.error(`Failed to load sprite sheet: ${src}`);
-                reject(); // Don't crash, just log error
+                reject();
             };
         });
     }

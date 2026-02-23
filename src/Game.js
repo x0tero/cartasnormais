@@ -91,7 +91,9 @@ export default class Game {
         this.menuBtn = { x: 90, y: 450, width: 200, height: 60, text: "Menú principal", color: "#33b5e5", hoverColor: "#62c9e5", isHovered: false };    
     }
 
-    update() {
+    update(input) {
+        if (input.moved) this.handleMouseMove(input.x, input.y);
+        if (input.clicked) this.handleClick(input.x, input.y);
         if (this.animations.length === 0) {
             this.isAnimating = false;
             return;
@@ -444,120 +446,38 @@ export default class Game {
     }
 
     setupTutorialRow() {
-    const tutorialMasks = ["Felicidad", "Tristeza", "Ira", "Conspirador"];
-    let validSetFound = false;
-
-    while (!validSetFound) {
-        let currentSet = [];
-        for(let i = 0; i < 4; i++) currentSet.push(this.deck.draw());
-        
-        // Sort Ascending: Left=Low, Right=High
-        currentSet.sort((a, b) => this.getCardValue(a) - this.getCardValue(b));
-
-        let allGood = true;
-        for(let i = 0; i < 4; i++) {
-            if (!this.isValidSetup(tutorialMasks[i], currentSet[i])) {
-                allGood = false;
-                break;
-            }
-        }
-
-        if (allGood) {
-            for(let c = 0; c < 4; c++) {
-                this.board[0][c] = currentSet[c];
-                this.maskBoard[0][c] = tutorialMasks[c];
-                this.masksSpawned++;
-            }
-            validSetFound = true;
-        } else {
-            // Recalculate if the random cards didn't fit the fixed tutorial masks
-            this.deck.cards.unshift(...currentSet);
-        }
-    }
-}
-    /*
-    startLevel() {
-        this.deck.reset();
-        this.board = Array(this.rows).fill(null).map(() => Array(this.cols).fill(null));
-        this.maskBoard = Array(this.rows).fill(null).map(() => Array(this.cols).fill(null));
-        this.discardPile = [];
-        this.playerHand = [];
-
-        // 1. Define the Masks for the first row
-        //const masks = ['Felicidad', 'Tristeza', 'Ira', 'Conspirador'];
-
-        // Tests
-        // Mascaras tutorial
-        const masks = ['Felicidad', 'Tristeza', 'Ira', 'Conspirador']
-
-        const maskCountForLvl1 = 20
-        const masksForLvl1 = ['Felicidad', 'Tristeza', 'Ira', 'Conspirador', 
-            'Cinismo', 'Soldado', 'Codicia', 'Bruto', 'Borracho', 'Artista', 
-            'Cabalo', 'Alteza', 'Carlista', 'Desliz', 'Preocupacion'
-        ];
-
-        const maskCountForLvl2 = 30
-        const masksForLvl2 = ['Felicidad', 'Tristeza', 'Ira', 'Conspirador', 
-            'Cinismo', 'Soldado', 'Codicia', 'Bruto', 'Borracho', 'Artista', 
-            'Cabalo', 'Alteza', 'Carlista', 'Desliz', 'Preocupacion', 'Pirata',
-            'Presumido', 'Decepcion', 'Sorpresa', 'Afouteza'
-        ];
-
-        const maskCountForLvl3 = 35
-        const masksForLvl3 = ['Felicidad', 'Tristeza', 'Ira', 'Conspirador', 
-            'Cinismo', 'Soldado', 'Codicia', 'Bruto', 'Borracho', 'Artista', 
-            'Cabalo', 'Alteza', 'Carlista', 'Desliz', 'Preocupacion', 'Pirata',
-            'Presumido', 'Decepcion', 'Sorpresa', 'Afouteza', 'Enfado', 'Dereita',
-            'Esquerda', 'Trauma'
-        ];
-
-        
-        
-
+        const tutorialMasks = ["Felicidad", "Tristeza", "Ira", "Conspirador"];
         let validSetFound = false;
-        let sortedCards = [];
 
-        // 2. Loop until we find a set of 4 cards that works when sorted
         while (!validSetFound) {
-            
-            // A. Draw 4 cards
             let currentSet = [];
-            for(let i=0; i<4; i++) currentSet.push(this.deck.draw());
-
-            // B. Sort them by Value (Ascending: Left=Low, Right=High)
+            for(let i = 0; i < 4; i++) currentSet.push(this.deck.draw());
+            
+            // Sort Ascending: Left=Low, Right=High
             currentSet.sort((a, b) => this.getCardValue(a) - this.getCardValue(b));
 
-            // C. Validate this specific arrangement
             let allGood = true;
-            for(let i=0; i<4; i++) {
-                if (!this.isValidSetup(masks[i], currentSet[i])) {
+            for(let i = 0; i < 4; i++) {
+                if (!this.isValidSetup(tutorialMasks[i], currentSet[i])) {
                     allGood = false;
                     break;
                 }
             }
 
             if (allGood) {
+                for(let c = 0; c < 4; c++) {
+                    this.board[0][c] = currentSet[c];
+                    this.maskBoard[0][c] = tutorialMasks[c];
+                    this.masksSpawned++;
+                }
                 validSetFound = true;
-                sortedCards = currentSet;
             } else {
-                // Return cards to the deck to avoid running out
+                // Recalculate if the random cards didn't fit the fixed tutorial masks
                 this.deck.cards.unshift(...currentSet);
             }
         }
-
-        // 3. Place the Valid Sorted Set
-        for(let col = 0; col < 4; col++) {
-            this.board[0][col] = sortedCards[col];
-            this.maskBoard[0][col] = masks[col];
-        }
-
-        // 4. Deal Player Hand
-        this.playerHand.push(this.deck.draw());
-        this.selectedCardIndex = -1; 
-
-        this.gameState = 'PLAYING';
-        this.render();
-    }*/
+    }
+   
 
     nextLevel() {
         this.level++;
@@ -799,7 +719,7 @@ export default class Game {
             targetX: this.deckX,
             targetY: this.deckY,
             progress: 0,
-            speed: 0.05, // Fast!
+            speed: 0.07, // Fast!
             onComplete: () => {}
         });
         this.isAnimating = true;
@@ -886,7 +806,7 @@ export default class Game {
                     targetX: this.deckX,
                     targetY: this.deckY,
                     progress: 0,
-                    speed: 0.08,
+                    speed: 0.07,
                     onComplete: () => {
                         landedCount++;
                         if (landedCount === fullHandData.length) {
@@ -911,7 +831,7 @@ export default class Game {
             alpha: 1,             // Start fully visible
             scale: 1,             // Start normal size
             progress: 0,
-            speed: 0.05,          // Speed of fade
+            speed: 0.07,          // Speed of fade
             onComplete: onCompleteCallback
         });
         this.isAnimating = true;
@@ -926,7 +846,7 @@ export default class Game {
             col: col,
             offsetX: 0,  // Starts at 0
             progress: 0,
-            speed: 0.02, // Fast shake
+            speed: 0.07, // Fast shake
             onComplete: onCompleteCallback
         });
         this.isAnimating = true;
@@ -967,7 +887,7 @@ export default class Game {
             destCol: col,
             
             progress: 0,
-            speed: 0.02,
+            speed: 0.07,
             onComplete: onCompleteCallback
         });
         this.isAnimating = true;
@@ -985,7 +905,7 @@ export default class Game {
             targetX: this.discardX,
             targetY: this.discardY,
             progress: 0,
-            speed: 0.02,
+            speed: 0.07,
             onComplete: onCompleteCallback
         });
         this.isAnimating = true;
@@ -1012,7 +932,7 @@ export default class Game {
             targetX: targetX,
             targetY: targetY,
             progress: 0,
-            speed: 0.02, // Speed of flight
+            speed: 0.07, // Speed of flight
             onComplete: onCompleteCallback // <--- Store the function to run later
         });
         
@@ -1090,7 +1010,7 @@ export default class Game {
             targetX: targetX,
             targetY: targetY,
             progress: 0,
-            speed: 0.05 // 5% movement per frame (approx 1/3rd of a second)
+            speed: 0.07 // 5% movement per frame (approx 1/3rd of a second)
         });
     }
 
@@ -1588,33 +1508,11 @@ export default class Game {
         this.ctx.fillText(`Nivel: ${this.level}`, 20, 30);
 
 
-        // DRAW BUTTON STATE LOGIC
-        /*
-        if (this.playerHand.length >= 5) {
-            // Disabled State (Grey)
-            this.drawActionBtn.color = "#555555"; 
-            this.drawActionBtn.hoverColor = "#555555"; 
-            this.drawActionBtn.text = "MAX (5)"; // Optional: Change text to explain why
-        } else {
-            // Active State (Orange)
-            this.drawActionBtn.color = "#ff8800"; 
-            this.drawActionBtn.hoverColor = "#ffaa44"; 
-            this.drawActionBtn.text = "ROBAR";
-        }
-        */
-        //this.drawButton(this.drawActionBtn);
-
-
-        this.ctx.fillStyle = "rgba(0,0,0,0.5)"; // Semi-transparent background for readability
+        this.ctx.fillStyle = "rgba(0,0,0,0.5)";
         this.ctx.font = "10px Minipixel";
         this.ctx.textAlign = "left";
 
-        // Logic: masksRemaining = Total - (Total - activeOnBoard - discarded)
-        // Simpler: Just track how many have been DEFEATED
-        //const masksDefeated = this.masksSpawned - this.countActiveMasks();
-        //const masksLeft = this.totalMasksThisLevel - masksDefeated;
         const masksLeft = this.totalMasksThisLevel - this.masksDefeated;
-
         this.ctx.fillText(`Mascaras restantes: ${masksLeft}/${this.totalMasksThisLevel}`, 20, 50);
 
         const backImg = this.assets['back'];
@@ -1642,12 +1540,7 @@ export default class Game {
             const topCard = this.discardPile[this.discardPile.length - 1];
             const img = this.assets[topCard.toString()];
             this.ctx.drawImage(img, this.discardX, this.discardY, this.cardWidth, this.cardHeight);
-        } 
-        /*else {
-            this.ctx.strokeStyle = "rgba(0,0,0,0.3)";
-            this.ctx.strokeRect(this.discardX, this.discardY, this.cardWidth, this.cardHeight);
-        }*/
-        
+        }
 
         for (let row = 0; row < this.rows; row++) {
             for (let col = 0; col < this.cols; col++) {
@@ -1727,21 +1620,14 @@ export default class Game {
         
         this.ctx.fillText(`${this.flushCount}/${this.maxFlush}`, textFlushX, textFlushY);
 
-        // --- UPDATED: Draw Hand ---
+        // Debuxar man
         if (this.playerHand.length > 0) {
-            //this.ctx.fillStyle = "white";
-            //this.ctx.font = "bold 16px Arial";
-            //this.ctx.textAlign = "center";
-            //this.ctx.fillText("TU MANO", this.canvas.width / 2, this.playerHandY - 10);
-
             const handGap = 10; 
             const totalHandWidth = (this.playerHand.length * this.cardWidth) + ((this.playerHand.length - 1) * handGap);
             const startX = (this.canvas.width - totalHandWidth) / 2;
 
             this.playerHand.forEach((cardId, index) => {
                 const img = this.assets[cardId.toString()];
-                // Note: If we just finished an animation (unshift), the other cards might jump instantly to the right.
-                // This is normal for simple games.
                 const x = startX + index * (this.cardWidth + handGap);
                 
                 if (index === this.selectedCardIndex) {
@@ -1757,7 +1643,7 @@ export default class Game {
         }
         
 
-        // --- DRAW ACTIVE ANIMATIONS ---
+        // Debuxar animacións activas
         this.animations.forEach(anim => {
             
             // 1. Draw Flying Cards

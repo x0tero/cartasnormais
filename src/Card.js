@@ -6,13 +6,13 @@ export default class Card {
         
         // Load the face image
         this.image = new Image();
-        this.image.src = `./spanish_deck/${value}.png`; // Assumes .png
+        //this.image.src = `./spanish_deck/${value}.png`; // Assumes .png
 
         // Load the back image (static property for efficiency)
-        if (!Card.backImage) {
-            Card.backImage = new Image();
-            Card.backImage.src = './spanish_deck/back.png';
-        }
+        //if (!Card.backImage) {
+        //    Card.backImage = new Image();
+        //    Card.backImage.src = './spanish_deck/back.png';
+        //}
 
         // Target position (for animation/drawing)
         this.x = 0;
