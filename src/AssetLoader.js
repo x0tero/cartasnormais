@@ -1,27 +1,36 @@
 export default class AssetLoader {
     constructor() {
-        this.images = {}; 
+        this.images = {};
+        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
 
     async loadAll() {
         const promises = [];
 
-        await this.loadSpriteSheet('./spanish_deck/barallamini.png', 'cards');
-        await this.loadSpriteSheet('./spanish_deck/mascaras.png', 'masks');
+        await this.loadSpriteSheet('./barallaEsp/barallamini.png', 'cartas');
+        await this.loadSpriteSheet('./barallaEsp/mascaras.png', 'mascaras');
+        await this.loadSpriteSheet('./barallaEsp/menuIntro-paxina.png', 'intro');
 
-        promises.push(this.loadImage('back', `./spanish_deck/baralladorso.png`));
-        promises.push(this.loadImage('board_disabled', `./spanish_deck/taboleiro.png`));
-        promises.push(this.loadImage('board', `./spanish_deck/taboleirod.png`));
-        promises.push(this.loadImage('menu_bg', `./spanish_deck/menuEstatico.png`));
-        promises.push(this.loadImage('btn_normal', './spanish_deck/btnMenuNormal.png'));
-        promises.push(this.loadImage('btn_hover', './spanish_deck/btnMenuHover.png'));
-        promises.push(this.loadImage('btn_pressed', './spanish_deck/btnMenuPressed.png'));
-        promises.push(this.loadImage('flush_normal', './spanish_deck/flush/flush1.png'));
-        promises.push(this.loadImage('flush_hover', './spanish_deck/flush/flush2.png'));
-        promises.push(this.loadImage('flush_pressed', './spanish_deck/flush/flush3.png'));
-        promises.push(this.loadImage('flush_disabled', './spanish_deck/flush/flush4.png'));
+        promises.push(this.loadImage('dorso', `./barallaEsp/baralladorso.png`));
+        promises.push(this.loadImage('taboleiro_d', `./barallaEsp/taboleiro.png`));
+        promises.push(this.loadImage('taboleiro', `./barallaEsp/taboleirod.png`));
+        promises.push(this.loadImage('menu_bg', `./barallaEsp/menuEstatico.png`));
+        
+        promises.push(this.loadImage('btn_normal', './barallaEsp/btnMenuNormal.png'));
+        promises.push(this.loadImage('btn_peneirar', './barallaEsp/btnMenuHover.png'));
+        promises.push(this.loadImage('btn_premido', './barallaEsp/btnMenuPressed.png'));
 
-        const fontLoad = new FontFace('Minipixel', 'url(./spanish_deck/Minipixel.ttf');
+        promises.push(this.loadImage('flush_normal', './barallaEsp/flush/flush1.png'));
+        promises.push(this.loadImage('flush_peneirado', './barallaEsp/flush/flush2.png'));
+        promises.push(this.loadImage('flush_premido', './barallaEsp/flush/flush3.png'));
+        promises.push(this.loadImage('flush_deshabilitado', './barallaEsp/flush/flush4.png'));
+
+        promises.push(this.loadImage('push_normal', './barallaEsp/push/push1.png'));
+        promises.push(this.loadImage('push_peneirado', './barallaEsp/push/push2.png'));
+        promises.push(this.loadImage('push_premido', './barallaEsp/push/push3.png'));
+        promises.push(this.loadImage('push_deshabilitado', './barallaEsp/push/push4.png'));
+
+        const fontLoad = new FontFace('Minipixel', 'url(./barallaEsp/Minipixel.ttf');
         
         // Add the font promise to our waiting list
         promises.push(
@@ -33,8 +42,24 @@ export default class AssetLoader {
             })
         );
 
+        promises.push(this.loadAudio('son_barallar', './barallaEsp/son/barallar.mp3'));
+        promises.push(this.loadAudio('son_axitaMascara', './barallaEsp/son/axitaMascara.mp3'));
+        promises.push(this.loadAudio('son_rompeMascara', './barallaEsp/son/rompeMascara.mp3'));
+        for (let i = 1; i <= 6; i++) {
+            promises.push(this.loadAudio(`son_dar${i}`, `./barallaEsp/son/dar${i}.mp3`));
+        }
+
         await Promise.all(promises);
+        this.images['_audioContext'] = this.audioContext;
         return this.images;
+    }
+
+    loadAudio(key, src) {
+        return fetch(src)
+            .then(r => r.arrayBuffer())
+            .then(buf => this.audioContext.decodeAudioData(buf))
+            .then(decoded => { this.images[key] = decoded; })
+            .catch(err => { console.error(`Error loading audio ${src}:`, err); });
     }
 
     loadImage(key, src) {
@@ -46,28 +71,28 @@ export default class AssetLoader {
         });
     }
 
-    // Generalized Sprite Sheet Loader
     loadSpriteSheet(src, type) {
         return new Promise((resolve, reject) => {
             const spriteSheet = new Image();
             spriteSheet.src = src;
             
             spriteSheet.onload = () => {
-                if (type === 'cards') {
+                if (type === 'cartas') {
                     this.sliceCards(spriteSheet);
-                } else if (type === 'masks') {
+                } else if (type === 'mascaras') {
                     this.sliceMasks(spriteSheet);
+                } else if (type === 'intro') {
+                    this.sliceIntroFrames(spriteSheet);
                 }
                 resolve();
             };
             spriteSheet.onerror = () => {
-                console.error(`Failed to load sprite sheet: ${src}`);
+                console.error(`Fallou en cargar a folla de sprites: ${src}`);
                 reject();
             };
         });
     }
 
-    // --- SLICE LOGIC FOR CARDS (1-40) ---
     sliceCards(sheet) {
         const cardWidth = 48;
         const cardHeight = 76;
@@ -97,10 +122,9 @@ export default class AssetLoader {
                 this.images[finalId.toString()] = newImg;
             }
         }
-        console.log("Cards loaded!");
+        console.log("Cartas cargadas");
     }
 
-    // --- SLICE LOGIC FOR MASKS (Named List) ---
     sliceMasks(sheet) {
         const cardWidth = 48;
         const cardHeight = 76;
@@ -108,7 +132,7 @@ export default class AssetLoader {
         // The list of names provided, in order (Left->Right, Top->Bottom)
         const maskNames = [
             // Row 1
-            "Felicidad", "Tristeza", "Cinismo", "Ira", "Conspirador", "Soldado",
+            "Felicidade", "Tristeza", "Cinismo", "Ira", "Conspirador", "Soldado",
             // Row 2
             "Desliz", "Preocupacion", "Sorpresa", "Trauma", "Afouteza", "Bruto",
             // Row 3
@@ -149,6 +173,39 @@ export default class AssetLoader {
                 nameIndex++;
             }
         }
-        console.log("Masks loaded!");
+        console.log("Mascaras cargadas");
+    }
+
+    sliceIntroFrames(sheet) {
+        const frameWidth = 380;
+        const frameHeight = 600;
+        const cols = 8;
+        const rows = 8;
+        const totalFrames = cols * rows; // 64 frames
+
+        let frameIndex = 0;
+        for (let row = 0; row < rows; row++) {
+            for (let col = 0; col < cols; col++) {
+                const canvas = document.createElement('canvas');
+                canvas.width = frameWidth;
+                canvas.height = frameHeight;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.imageSmoothingEnabled = false;
+
+                ctx.drawImage(sheet, 
+                    col * frameWidth, row * frameHeight, 
+                    frameWidth, frameHeight, 
+                    0, 0, frameWidth, frameHeight
+                );
+
+                const newImg = new Image();
+                newImg.src = canvas.toDataURL();
+                
+                this.images[`introFrame_${frameIndex}`] = newImg;
+                frameIndex++;
+            }
+        }
+        console.log(`Intro frames cargados: ${totalFrames}`);
     }
 }
