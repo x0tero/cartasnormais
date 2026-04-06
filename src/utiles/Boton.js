@@ -1,5 +1,5 @@
 export default class Boton {
-    constructor(x, y, ancho, alto, cores = [], imaxes = [], texto = '', enClic = null) {
+    constructor(x, y, ancho, alto, cores = [], imaxes = [], texto = '', enClic = null, opcions = {}) {
         this.x = x;
         this.y = y;
         this.ancho = ancho;
@@ -10,6 +10,8 @@ export default class Boton {
         this.enClic = enClic;
         this.estado = 'normal';
         this.deshabilitado = false;
+        this.corTexto = opcions.corTexto || 'black';
+        this.tamanhoTexto = opcions.tamanhoTexto || 12;
     }
 
     actualizar(entrada, dt) {
@@ -65,8 +67,8 @@ export default class Boton {
         ctx.fillRect(this.x, this.y, this.ancho, this.alto);
 
         if (this.texto) {
-            ctx.fillStyle = 'black';
-            ctx.font = '12px Minipixel';
+            ctx.fillStyle = this.corTexto;
+            ctx.font = `${this.tamanhoTexto}px Minipixel`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.texto, this.x + this.ancho / 2, this.y + this.alto / 2);

@@ -1,22 +1,23 @@
 import Escena from '../Escena.js';
 import Baralla from '../Baralla.js';
 import Boton from '../utiles/Boton.js';
+import AnimacionDesprazamento from '../utiles/animacions/AnimacionDesprazamento.js';
 
 // ── DISPLAY CONSTANTS ──────────────────────────
-const CW = 56;          // Card width
-const CH = 88;          // Card height
-const GAP = 8;           // Gap between cards
+const CW = 48;          // Card width (original sprite size)
+const CH = 76;          // Card height (original sprite size)
+const GAP = 8;
 const CANVAS_W = 380;
 const CANVAS_H = 600;
-const COLS_MESA = 5;     // Max cards per table row
+const COLS_MESA = 5;
 
-// Layout Y positions
-const Y_AI_INFO = 0;
-const Y_AI_HAND = 18;
-const Y_MESA = 115;
-const Y_BUTTONS = 410;
-const Y_PLAYER_HAND = 460;
-const Y_PLAYER_INFO = 558;
+// AI compact bar height
+const AI_BAR_H = 28;
+
+// Bottom layout (fixed from canvas bottom)
+const Y_PLAYER_INFO = CANVAS_H - 18;
+const Y_PLAYER_HAND = Y_PLAYER_INFO - CH - 6;
+const Y_BUTTONS = Y_PLAYER_HAND - 42;
 
 // Game states
 const ESTADO = {
@@ -27,31 +28,48 @@ const ESTADO = {
 };
 
 export default class Xogo extends Escena {
-    constructor(director) {
+    constructor(director, config = {}) {
         super(director);
         this.assets = director.assets;
         this.puntosMeta = 21;
 
-        // Persistent scores across rounds
+        const numOponentes = config.numOponentes || 1;
+        const dificultades = config.dificultades || ['medio'];
+        this.config = config;
+
+        // Player persistent state
         this.puntosXogador = 0;
-        this.puntosIA = 0;
         this.ronda = 0;
 
-        // Per-round state (initialized in iniciarRonda)
-        this.baralla = null;
+        // Player per-round state
         this.manXogador = [];
-        this.manIA = [];
-        this.mesa = [];
         this.capturadasXogador = [];
-        this.capturadasIA = [];
         this.escobasXogador = 0;
-        this.escobasIA = 0;
-        this.ultimoCapturador = null;
+
+        // AI players
+        this.ias = [];
+        for (let i = 0; i < numOponentes; i++) {
+            this.ias.push({
+                man: [],
+                capturadas: [],
+                escobas: 0,
+                puntos: 0,
+                dificultade: dificultades[i] || 'medio',
+                nome: `IA ${i + 1}`
+            });
+        }
+
+        this.numXogadores = 1 + numOponentes;
+
+        // Play area bounds (between AI bars and buttons)
+        this.aiBottom = this.ias.length * AI_BAR_H;
+        this.playAreaCenter = this.aiBottom + (Y_BUTTONS - this.aiBottom) / 2;
 
         // UI interaction state
         this.estado = ESTADO.TURNO_XOGADOR;
-        this.cartaSel = -1;            // Selected hand card index
-        this.mesaSel = new Set();       // Selected table card indices
+        this.turnoActual = 0; // 0 = player, 1+ = IA index
+        this.cartaSel = -1;
+        this.mesaSel = new Set();
         this.mensaxe = '';
         this.tempMsg = 0;
         this.cartaHover = -1;
@@ -63,6 +81,13 @@ export default class Xogo extends Escena {
 
         // Scoring display
         this.detallesPuntos = null;
+        this.ultimoCapturador = null;
+
+        // Animation state
+        this.animacions = [];
+        this.estaAnimando = false;
+        this.tremerTempo = 0;
+        this.tremerDesvio = 0;
 
         // Buttons
         const bw = 80, bh = 28;
@@ -94,7 +119,6 @@ export default class Xogo extends Escena {
             ['#2a2a7a', '#3a3a9a', '#1a1a5a'],
             [], 'Menu',
             () => {
-                // Lazy import to avoid circular dependency
                 import('./Menu.js').then(m => {
                     this.director.cambiarEscena(new m.default(this.director));
                 });
@@ -112,21 +136,25 @@ export default class Xogo extends Escena {
         this.ronda++;
         this.baralla = new Baralla();
         this.manXogador = [];
-        this.manIA = [];
-        this.mesa = [];
         this.capturadasXogador = [];
-        this.capturadasIA = [];
         this.escobasXogador = 0;
-        this.escobasIA = 0;
+        for (const ia of this.ias) {
+            ia.man = [];
+            ia.capturadas = [];
+            ia.escobas = 0;
+        }
         this.ultimoCapturador = null;
         this.cartaSel = -1;
         this.mesaSel.clear();
         this.detallesPuntos = null;
+        this.turnoActual = 0;
 
         // Deal: 4 to table, 3 to each player
         this.mesa = this.baralla.repartir(4);
         this.manXogador = this.baralla.repartir(3);
-        this.manIA = this.baralla.repartir(3);
+        for (const ia of this.ias) {
+            ia.man = this.baralla.repartir(3);
+        }
 
         this.estado = ESTADO.TURNO_XOGADOR;
         this.reproducirSon('son_barallar');
@@ -135,21 +163,26 @@ export default class Xogo extends Escena {
 
     repartirMais() {
         this.manXogador = this.baralla.repartir(3);
-        this.manIA = this.baralla.repartir(3);
+        for (const ia of this.ias) {
+            ia.man = this.baralla.repartir(3);
+        }
         this.reproducirSon('son_barallar');
     }
 
     pasarTurno() {
-        // Reset button state
         this.btnCapturar.deshabilitado = true;
         this.btnSoltar.deshabilitado = true;
         this.btnCapturar.resetar();
         this.btnSoltar.resetar();
 
-        // Both hands empty → deal more or end round
-        if (this.manXogador.length === 0 && this.manIA.length === 0) {
+        // Check if all hands are empty
+        const todasVacias = this.manXogador.length === 0 &&
+            this.ias.every(ia => ia.man.length === 0);
+
+        if (todasVacias) {
             if (this.baralla.restantes() > 0) {
                 this.repartirMais();
+                this.turnoActual = 0;
                 this.estado = ESTADO.TURNO_XOGADOR;
                 this.mostrarMsg('Tu turno');
             } else {
@@ -158,33 +191,38 @@ export default class Xogo extends Escena {
             return;
         }
 
-        // Alternate turns
-        if (this.estado === ESTADO.TURNO_XOGADOR) {
-            this.estado = ESTADO.TURNO_IA;
-            this.tempIA = 0;
-        } else {
+        // Advance to next player
+        this.turnoActual = (this.turnoActual + 1) % this.numXogadores;
+
+        if (this.turnoActual === 0) {
             this.estado = ESTADO.TURNO_XOGADOR;
             this.mostrarMsg('Tu turno');
+        } else {
+            this.estado = ESTADO.TURNO_IA;
+            this.tempIA = 0;
         }
     }
 
     finalizarRonda() {
-        // Last capturer gets remaining table cards (no escoba for this)
+        // Last capturer gets remaining table cards
         if (this.ultimoCapturador === 'xogador') {
             this.capturadasXogador.push(...this.mesa);
-        } else if (this.ultimoCapturador === 'ia') {
-            this.capturadasIA.push(...this.mesa);
+        } else if (this.ultimoCapturador) {
+            const ia = this.ias.find(a => a.nome === this.ultimoCapturador);
+            if (ia) ia.capturadas.push(...this.mesa);
         } else {
-            // Edge case: nobody captured anything
             this.capturadasXogador.push(...this.mesa);
         }
         this.mesa = [];
 
         this.detallesPuntos = this.calcularPuntuacion();
-        this.puntosXogador += this.detallesPuntos.totalX;
-        this.puntosIA += this.detallesPuntos.totalIA;
+        this.puntosXogador += this.detallesPuntos.detalles[0].total;
+        for (let i = 0; i < this.ias.length; i++) {
+            this.ias[i].puntos += this.detallesPuntos.detalles[i + 1].total;
+        }
 
-        if (this.puntosXogador >= this.puntosMeta || this.puntosIA >= this.puntosMeta) {
+        const maxPuntos = Math.max(this.puntosXogador, ...this.ias.map(ia => ia.puntos));
+        if (maxPuntos >= this.puntosMeta) {
             this.estado = ESTADO.FIN_XOGO;
         } else {
             this.estado = ESTADO.FIN_RONDA;
@@ -192,76 +230,74 @@ export default class Xogo extends Escena {
     }
 
     calcularPuntuacion() {
-        const d = { xogador: [], ia: [], totalX: 0, totalIA: 0 };
-        const cX = this.capturadasXogador;
-        const cIA = this.capturadasIA;
+        const xogadores = [
+            { nome: 'Ti', capturadas: this.capturadasXogador, escobas: this.escobasXogador },
+            ...this.ias.map(ia => ({ nome: ia.nome, capturadas: ia.capturadas, escobas: ia.escobas }))
+        ];
+
+        const d = {
+            detalles: xogadores.map(x => ({ nome: x.nome, lineas: [], total: 0 }))
+        };
 
         // 1. Escobas (+1 each)
-        if (this.escobasXogador > 0) {
-            d.xogador.push(`Escobas: +${this.escobasXogador}`);
-            d.totalX += this.escobasXogador;
-        }
-        if (this.escobasIA > 0) {
-            d.ia.push(`Escobas: +${this.escobasIA}`);
-            d.totalIA += this.escobasIA;
-        }
-
-        // 2. Most captured cards (+1, tie = nobody)
-        if (cX.length > cIA.length) {
-            d.xogador.push(`Mais cartas (${cX.length}): +1`);
-            d.totalX += 1;
-        } else if (cIA.length > cX.length) {
-            d.ia.push(`Mais cartas (${cIA.length}): +1`);
-            d.totalIA += 1;
-        }
-
-        // 3/4. Gold cards: +1 for most, or +2 for ALL 10 oros
-        const oX = cX.filter(c => c.esPaloOro()).length;
-        const oIA = cIA.filter(c => c.esPaloOro()).length;
-        if (oX === 10) {
-            d.xogador.push('Todos os ouros: +2');
-            d.totalX += 2;
-        } else if (oIA === 10) {
-            d.ia.push('Todos os ouros: +2');
-            d.totalIA += 2;
-        } else if (oX > oIA) {
-            d.xogador.push(`Mais ouros (${oX}): +1`);
-            d.totalX += 1;
-        } else if (oIA > oX) {
-            d.ia.push(`Mais ouros (${oIA}): +1`);
-            d.totalIA += 1;
-        }
-
-        // 5/6. Sevens: +3 for all four 7s, or +1 for 7 of Oros (ID=7)
-        const s7X = cX.filter(c => c.esSete()).length;
-        const s7IA = cIA.filter(c => c.esSete()).length;
-        const has7oroX = cX.some(c => c.valor === 7);
-        const has7oroIA = cIA.some(c => c.valor === 7);
-
-        if (s7X === 4) {
-            d.xogador.push('Todos os setes: +3');
-            d.totalX += 3;
-        } else if (s7IA === 4) {
-            d.ia.push('Todos os setes: +3');
-            d.totalIA += 3;
-        } else {
-            if (has7oroX) {
-                d.xogador.push('Sete de ouros: +1');
-                d.totalX += 1;
-            } else if (has7oroIA) {
-                d.ia.push('Sete de ouros: +1');
-                d.totalIA += 1;
+        for (let i = 0; i < xogadores.length; i++) {
+            if (xogadores[i].escobas > 0) {
+                d.detalles[i].lineas.push(`Escobas: +${xogadores[i].escobas}`);
+                d.detalles[i].total += xogadores[i].escobas;
             }
         }
 
-        // 7. Opponent has fewer than 10 cards (+2)
-        if (cIA.length < 10) {
-            d.xogador.push('Rival < 10 cartas: +2');
-            d.totalX += 2;
+        // 2. Most captured cards (+1, tie = nobody)
+        const cardCounts = xogadores.map(x => x.capturadas.length);
+        const maxCards = Math.max(...cardCounts);
+        const maxCardCount = cardCounts.filter(c => c === maxCards).length;
+        if (maxCardCount === 1 && maxCards > 0) {
+            const idx = cardCounts.indexOf(maxCards);
+            d.detalles[idx].lineas.push(`Mais cartas (${maxCards}): +1`);
+            d.detalles[idx].total += 1;
         }
-        if (cX.length < 10) {
-            d.ia.push('Rival < 10 cartas: +2');
-            d.totalIA += 2;
+
+        // 3. Gold cards: +2 for all 10, +1 for most (tie = nobody)
+        const orosCounts = xogadores.map(x => x.capturadas.filter(c => c.esPaloOro()).length);
+        const maxOros = Math.max(...orosCounts);
+        const maxOrosCount = orosCounts.filter(c => c === maxOros).length;
+        if (maxOros === 10 && maxOrosCount === 1) {
+            const idx = orosCounts.indexOf(10);
+            d.detalles[idx].lineas.push('Todos os ouros: +2');
+            d.detalles[idx].total += 2;
+        } else if (maxOrosCount === 1 && maxOros > 0) {
+            const idx = orosCounts.indexOf(maxOros);
+            d.detalles[idx].lineas.push(`Mais ouros (${maxOros}): +1`);
+            d.detalles[idx].total += 1;
+        }
+
+        // 4. Sevens: +3 for all four, or +1 for 7 de ouros
+        const setesCounts = xogadores.map(x => x.capturadas.filter(c => c.esSete()).length);
+        const maxSetes = Math.max(...setesCounts);
+        if (maxSetes === 4) {
+            const idx = setesCounts.indexOf(4);
+            d.detalles[idx].lineas.push('Todos os setes: +3');
+            d.detalles[idx].total += 3;
+        } else {
+            for (let i = 0; i < xogadores.length; i++) {
+                if (xogadores[i].capturadas.some(c => c.valor === 7)) {
+                    d.detalles[i].lineas.push('Sete de ouros: +1');
+                    d.detalles[i].total += 1;
+                    break;
+                }
+            }
+        }
+
+        // 5. Rival < 10 cards (only in 1v1)
+        if (this.ias.length === 1) {
+            if (xogadores[1].capturadas.length < 10) {
+                d.detalles[0].lineas.push('Rival < 10 cartas: +2');
+                d.detalles[0].total += 2;
+            }
+            if (xogadores[0].capturadas.length < 10) {
+                d.detalles[1].lineas.push('Rival < 10 cartas: +2');
+                d.detalles[1].total += 2;
+            }
         }
 
         return d;
@@ -275,13 +311,22 @@ export default class Xogo extends Escena {
         if (!entrada.clicado) return;
         const mx = entrada.x, my = entrada.y;
 
-        // Click on player's hand cards
+        // Shake feedback: click on disabled Capturar button (wrong sum)
+        if (this.cartaSel >= 0 && this.mesaSel.size > 0 && this.btnCapturar.deshabilitado) {
+            const b = this.btnCapturar;
+            if (mx >= b.x && mx < b.x + b.ancho && my >= b.y && my < b.y + b.alto) {
+                this.tremerTempo = 300;
+                this.reproducirSon('son_rompeMascara');
+                return;
+            }
+        }
+
+        // Click on player hand cards
         const hp = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
         for (let i = 0; i < this.manXogador.length; i++) {
             const p = hp[i];
             const yo = (i === this.cartaSel) ? -12 : 0;
             if (mx >= p.x && mx < p.x + CW && my >= p.y + yo && my < p.y + yo + CH) {
-                // Toggle or switch selection
                 this.cartaSel = (this.cartaSel === i) ? -1 : i;
                 this.mesaSel.clear();
                 this.actualizarBotns();
@@ -289,7 +334,7 @@ export default class Xogo extends Escena {
             }
         }
 
-        // Click on table cards (only when a hand card is selected)
+        // Click on table cards
         if (this.cartaSel >= 0) {
             const tp = this.posicionsMesa();
             for (let i = 0; i < this.mesa.length; i++) {
@@ -324,8 +369,22 @@ export default class Xogo extends Escena {
         if (this.cartaSel < 0 || this.mesaSel.size === 0) return;
         if (this.sumaSeleccion() !== 15) return;
 
+        // Get positions before modifying arrays
+        const hp = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
+        const tp = this.posicionsMesa();
+        const handPos = hp[this.cartaSel];
+        const destX = CANVAS_W / 2 - CW / 2;
+        const destY = Y_PLAYER_INFO;
+
         const cartaMan = this.manXogador[this.cartaSel];
-        const indices = Array.from(this.mesaSel).sort((a, b) => b - a); // descending for safe splice
+        const indices = Array.from(this.mesaSel).sort((a, b) => b - a);
+
+        // Collect card positions and values before removal
+        const cardAnims = indices.map(idx => ({
+            valor: this.mesa[idx].valor, x: tp[idx].x, y: tp[idx].y
+        }));
+
+        // Modify game state
         const capturadas = [cartaMan];
         for (const idx of indices) {
             capturadas.push(this.mesa[idx]);
@@ -335,29 +394,62 @@ export default class Xogo extends Escena {
         this.capturadasXogador.push(...capturadas);
         this.ultimoCapturador = 'xogador';
 
-        // Check escoba (swept the table)
-        if (this.mesa.length === 0) {
+        const isEscoba = this.mesa.length === 0;
+        if (isEscoba) {
             this.escobasXogador++;
             this.mostrarMsg('¡ESCOBA!', 2500);
             this.reproducirSon('son_axitaMascara');
+        }
+
+        // Create animations: hand card + table cards fly to capture zone
+        this.animacions.push(new AnimacionDesprazamento(
+            this.assets, CW, CH, cartaMan.valor,
+            handPos.x, handPos.y - 12, destX, destY, null
+        ));
+        const lastIdx = cardAnims.length - 1;
+        for (let i = 0; i < cardAnims.length; i++) {
+            const ca = cardAnims[i];
+            this.animacions.push(new AnimacionDesprazamento(
+                this.assets, CW, CH, ca.valor,
+                ca.x, ca.y, destX, destY,
+                (i === lastIdx) ? () => this.pasarTurno() : null
+            ));
         }
 
         this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
         this.cartaSel = -1;
         this.mesaSel.clear();
         this.actualizarBotns();
-        this.pasarTurno();
     }
 
     executarSoltar() {
         if (this.cartaSel < 0) return;
+
+        // Get hand position before removal
+        const hp = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
+        const fromPos = hp[this.cartaSel];
         const carta = this.manXogador.splice(this.cartaSel, 1)[0];
+
+        // Compute destination on table (temporarily add to get position)
         this.mesa.push(carta);
+        const tp = this.posicionsMesa();
+        const toPos = { x: tp[tp.length - 1].x, y: tp[tp.length - 1].y };
+        this.mesa.pop();
+
+        // Animate card from hand to table, then commit
+        this.animacions.push(new AnimacionDesprazamento(
+            this.assets, CW, CH, carta.valor,
+            fromPos.x, fromPos.y - 12, toPos.x, toPos.y,
+            () => {
+                this.mesa.push(carta);
+                this.pasarTurno();
+            }
+        ));
+
         this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
         this.cartaSel = -1;
         this.mesaSel.clear();
         this.actualizarBotns();
-        this.pasarTurno();
     }
 
     // ═══════════════════════════════════════════
@@ -368,63 +460,111 @@ export default class Xogo extends Escena {
         this.tempIA += dt;
         if (this.tempIA < this.RETARDO_IA) return;
 
-        const xogada = this.mellorXogadaIA();
+        const ia = this.ias[this.turnoActual - 1];
+        const iaIdx = this.turnoActual - 1;
+        const iaBarX = CANVAS_W - 20;
+        const iaBarY = iaIdx * AI_BAR_H + 4;
+        const xogada = this.mellorXogadaIA(ia);
+
         if (xogada) {
-            // Perform capture
-            const carta = this.manIA[xogada.iCarta];
+            // Get table positions before removal
+            const tp = this.posicionsMesa();
             const indices = xogada.iMesa.sort((a, b) => b - a);
+            const cardAnims = indices.map(idx => ({
+                valor: this.mesa[idx].valor, x: tp[idx].x, y: tp[idx].y
+            }));
+
+            // Modify game state
+            const carta = ia.man[xogada.iCarta];
             const capturadas = [carta];
             for (const idx of indices) {
                 capturadas.push(this.mesa[idx]);
                 this.mesa.splice(idx, 1);
             }
-            this.manIA.splice(xogada.iCarta, 1);
-            this.capturadasIA.push(...capturadas);
-            this.ultimoCapturador = 'ia';
+            ia.man.splice(xogada.iCarta, 1);
+            ia.capturadas.push(...capturadas);
+            this.ultimoCapturador = ia.nome;
 
             if (this.mesa.length === 0) {
-                this.escobasIA++;
-                this.mostrarMsg('IA: ¡ESCOBA!', 2500);
+                ia.escobas++;
+                this.mostrarMsg(`${ia.nome}: ¡ESCOBA!`, 2500);
                 this.reproducirSon('son_axitaMascara');
             } else {
-                this.mostrarMsg('IA capturou cartas');
+                this.mostrarMsg(`${ia.nome} capturou cartas`);
+            }
+
+            // Animate captured cards flying to AI bar
+            const lastIdx = cardAnims.length - 1;
+            for (let i = 0; i < cardAnims.length; i++) {
+                const ca = cardAnims[i];
+                this.animacions.push(new AnimacionDesprazamento(
+                    this.assets, CW, CH, ca.valor,
+                    ca.x, ca.y, iaBarX, iaBarY,
+                    (i === lastIdx) ? () => this.pasarTurno() : null
+                ));
             }
         } else {
-            // Drop least valuable card
-            const idx = this.cartaIAParaSoltar();
-            this.mesa.push(this.manIA.splice(idx, 1)[0]);
-            this.mostrarMsg('IA soltou carta');
+            const idx = this.cartaIAParaSoltar(ia);
+            const carta = ia.man.splice(idx, 1)[0];
+
+            // Compute table destination
+            this.mesa.push(carta);
+            const tp = this.posicionsMesa();
+            const toPos = { x: tp[tp.length - 1].x, y: tp[tp.length - 1].y };
+            this.mesa.pop();
+
+            // Animate card from AI bar to table
+            this.animacions.push(new AnimacionDesprazamento(
+                this.assets, CW, CH, carta.valor,
+                iaBarX, iaBarY, toPos.x, toPos.y,
+                () => {
+                    this.mesa.push(carta);
+                    this.pasarTurno();
+                }
+            ));
+
+            this.mostrarMsg(`${ia.nome} soltou carta`);
         }
 
         this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
-        this.pasarTurno();
     }
 
-    mellorXogadaIA() {
+    mellorXogadaIA(ia) {
+        // Easy: 50% chance to skip capture entirely
+        if (ia.dificultade === 'facil' && Math.random() < 0.5) return null;
+
         let mellor = null, mellorPunt = -1;
 
-        for (let i = 0; i < this.manIA.length; i++) {
-            const c = this.manIA[i];
+        for (let i = 0; i < ia.man.length; i++) {
+            const c = ia.man[i];
             const obxectivo = 15 - c.puntos();
             const subs = this.subconxuntos(this.mesa, obxectivo);
 
             for (const sub of subs) {
-                let p = sub.length * 2; // Prefer capturing more cards
+                let p = sub.length * 2;
 
                 // Huge bonus for escoba
                 if (sub.length === this.mesa.length) p += 100;
 
                 // Value special cards on table
                 for (const idx of sub) {
-                    if (this.mesa[idx].valor === 7) p += 10; // 7 de oros
+                    if (this.mesa[idx].valor === 7) p += 10;
                     else if (this.mesa[idx].esPaloOro()) p += 5;
                     else if (this.mesa[idx].esSete()) p += 3;
                 }
 
-                // Value the hand card being captured too
+                // Value the hand card being captured
                 if (c.valor === 7) p += 8;
                 else if (c.esPaloOro()) p += 3;
                 else if (c.esSete()) p += 2;
+
+                // Hard: extra bonuses for strategic captures
+                if (ia.dificultade === 'dificil') {
+                    for (const idx of sub) {
+                        if (this.mesa[idx].esPaloOro()) p += 3;
+                        if (this.mesa[idx].esSete()) p += 2;
+                    }
+                }
 
                 if (p > mellorPunt) {
                     mellorPunt = p;
@@ -433,17 +573,46 @@ export default class Xogo extends Escena {
             }
         }
 
+        // Easy: 30% chance to pick random valid move instead of best
+        if (ia.dificultade === 'facil' && mellor && Math.random() < 0.3) {
+            const allMoves = [];
+            for (let i = 0; i < ia.man.length; i++) {
+                const c = ia.man[i];
+                const obxectivo = 15 - c.puntos();
+                const subs = this.subconxuntos(this.mesa, obxectivo);
+                for (const sub of subs) {
+                    allMoves.push({ iCarta: i, iMesa: [...sub] });
+                }
+            }
+            if (allMoves.length > 1) {
+                mellor = allMoves[Math.floor(Math.random() * allMoves.length)];
+            }
+        }
+
         return mellor;
     }
 
-    cartaIAParaSoltar() {
-        // Drop the least strategically valuable card
+    cartaIAParaSoltar(ia) {
+        if (ia.dificultade === 'facil') {
+            return Math.floor(Math.random() * ia.man.length);
+        }
+
         let best = 0, minVal = Infinity;
-        for (let i = 0; i < this.manIA.length; i++) {
-            const c = this.manIA[i];
-            let v = c.puntos(); // Base value from card number
+        for (let i = 0; i < ia.man.length; i++) {
+            const c = ia.man[i];
+            let v = c.puntos();
             if (c.esPaloOro()) v += 15;
             if (c.esSete()) v += 20;
+
+            // Hard: penalize drops that give opponents easy captures
+            if (ia.dificultade === 'dificil') {
+                const target = 15 - c.puntos();
+                if (target > 0) {
+                    const subs = this.subconxuntos(this.mesa, target);
+                    if (subs.length > 0) v -= 8;
+                }
+            }
+
             if (v < minVal) { minVal = v; best = i; }
         }
         return best;
@@ -460,7 +629,7 @@ export default class Xogo extends Escena {
                 if (mask & (1 << i)) {
                     s += cartas[i].puntos();
                     sub.push(i);
-                    if (s > obxectivo) break; // Early exit
+                    if (s > obxectivo) break;
                 }
             }
             if (s === obxectivo) res.push(sub);
@@ -502,6 +671,14 @@ export default class Xogo extends Escena {
     posicionsMesa() {
         const pos = [];
         const n = this.mesa.length;
+        if (n === 0) return pos;
+
+        const numRows = Math.ceil(n / COLS_MESA);
+        const tableH = numRows * CH + (numRows - 1) * GAP;
+
+        // Center table vertically in the play area
+        const yStart = this.playAreaCenter - tableH / 2;
+
         for (let i = 0; i < n; i++) {
             const row = Math.floor(i / COLS_MESA);
             const col = i % COLS_MESA;
@@ -511,7 +688,7 @@ export default class Xogo extends Escena {
             const sx = (CANVAS_W - rw) / 2;
             pos.push({
                 x: sx + col * (CW + GAP),
-                y: Y_MESA + row * (CH + GAP)
+                y: yStart + row * (CH + GAP)
             });
         }
         return pos;
@@ -523,6 +700,28 @@ export default class Xogo extends Escena {
 
     actualizar(entrada, dt) {
         if (this.tempMsg > 0) this.tempMsg -= dt;
+
+        // Process shake timer
+        if (this.tremerTempo > 0) {
+            this.tremerTempo -= dt;
+            const progress = 1 - Math.max(0, this.tremerTempo) / 300;
+            this.tremerDesvio = Math.sin(progress * Math.PI * 5) * 4 * (1 - progress);
+            if (this.tremerTempo <= 0) {
+                this.tremerDesvio = 0;
+                this.tremerTempo = 0;
+            }
+        }
+
+        // Process animations (block input while animating)
+        if (this.animacions.length > 0) {
+            this.estaAnimando = true;
+            for (let i = this.animacions.length - 1; i >= 0; i--) {
+                this.animacions[i].actualizar(null, dt);
+                if (this.animacions[i].completada) this.animacions.splice(i, 1);
+            }
+            return;
+        }
+        this.estaAnimando = false;
 
         switch (this.estado) {
             case ESTADO.TURNO_XOGADOR:
@@ -554,7 +753,6 @@ export default class Xogo extends Escena {
         this.mesaHover = -1;
         const mx = entrada.x, my = entrada.y;
 
-        // Hover on player hand
         const hp = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
         for (let i = 0; i < this.manXogador.length; i++) {
             const p = hp[i];
@@ -565,7 +763,6 @@ export default class Xogo extends Escena {
             }
         }
 
-        // Hover on table (only if hand card selected)
         if (this.cartaSel >= 0) {
             const tp = this.posicionsMesa();
             for (let i = 0; i < this.mesa.length; i++) {
@@ -589,8 +786,7 @@ export default class Xogo extends Escena {
 
     debuxar(ctx) {
         this.debuxarFondo(ctx);
-        this.debuxarInfoIA(ctx);
-        this.debuxarManIA(ctx);
+        this.debuxarInfoIAs(ctx);
         this.debuxarMesa(ctx);
         this.debuxarManXogador(ctx);
         this.debuxarInfoXogador(ctx);
@@ -605,19 +801,20 @@ export default class Xogo extends Escena {
         }
 
         if (this.tempMsg > 0) this.debuxarMsg(ctx);
+
+        // Draw animations on top of everything
+        for (const anim of this.animacions) {
+            anim.debuxar(ctx);
+        }
+
         if (this.estado === ESTADO.FIN_RONDA) this.debuxarFinRonda(ctx);
         if (this.estado === ESTADO.FIN_XOGO) this.debuxarFinXogo(ctx);
     }
 
     // ── Background ──
     debuxarFondo(ctx) {
-        const bg = this.assets['taboleiro'] || this.assets['taboleiro_d'];
-        if (bg) {
-            ctx.drawImage(bg, 0, 0, CANVAS_W, CANVAS_H);
-        } else {
-            ctx.fillStyle = '#1a472a';
-            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-        }
+        ctx.fillStyle = '#1a472a';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
     }
 
     // ── Single card ──
@@ -639,11 +836,45 @@ export default class Xogo extends Escena {
         }
     }
 
-    // ── AI hand (face down) ──
-    debuxarManIA(ctx) {
-        const pos = this.posicionsMan(this.manIA.length, Y_AI_HAND);
-        for (let i = 0; i < this.manIA.length; i++) {
-            this.debuxarCarta(ctx, this.manIA[i], pos[i].x, pos[i].y, false);
+    // ── AI info bars (compact) ──
+    debuxarInfoIAs(ctx) {
+        const SMALL_CW = 16, SMALL_CH = 25;
+
+        for (let i = 0; i < this.ias.length; i++) {
+            const ia = this.ias[i];
+            const y = i * AI_BAR_H;
+
+            // Bar background (highlight current AI's turn)
+            const isActive = this.estado === ESTADO.TURNO_IA && this.turnoActual - 1 === i;
+            ctx.fillStyle = isActive ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)';
+            ctx.fillRect(0, y, CANVAS_W, AI_BAR_H);
+
+            if (isActive) {
+                ctx.strokeStyle = '#FFD700';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(0, y, CANVAS_W, AI_BAR_H);
+            }
+
+            // Difficulty label
+            const difLabel = { facil: 'F', medio: 'M', dificil: 'D' }[ia.dificultade];
+
+            // Info text
+            ctx.fillStyle = '#e0e0e0';
+            ctx.font = '10px Minipixel';
+            ctx.textAlign = 'left';
+            ctx.fillText(
+                `${ia.nome} (${difLabel}): ${ia.puntos} pts | Cap: ${ia.capturadas.length} | Esc: ${ia.escobas}`,
+                8, y + 17
+            );
+
+            // Small face-down cards on the right
+            const dorso = this.assets['dorso'];
+            if (dorso) {
+                const startX = CANVAS_W - 8 - ia.man.length * (SMALL_CW + 2);
+                for (let j = 0; j < ia.man.length; j++) {
+                    ctx.drawImage(dorso, startX + j * (SMALL_CW + 2), y + 2, SMALL_CW, SMALL_CH);
+                }
+            }
         }
     }
 
@@ -655,22 +886,31 @@ export default class Xogo extends Escena {
             const sel = this.mesaSel.has(i);
             const hov = (i === this.mesaHover && this.cartaSel >= 0);
 
-            // Selection/hover highlight behind the card
+            // Shake offset for selected cards
+            const xOff = sel ? this.tremerDesvio : 0;
+            const cx = p.x + xOff;
+
+            // Shadow beneath selected cards
             if (sel) {
-                ctx.fillStyle = 'rgba(255,215,0,0.35)';
-                ctx.fillRect(p.x - 3, p.y - 3, CW + 6, CH + 6);
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 14;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 6;
+                ctx.fillStyle = 'black';
+                ctx.fillRect(cx, p.y, CW, CH);
+                ctx.restore();
             } else if (hov) {
                 ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                ctx.fillRect(p.x - 2, p.y - 2, CW + 4, CH + 4);
+                ctx.fillRect(cx - 2, p.y - 2, CW + 4, CH + 4);
             }
 
-            this.debuxarCarta(ctx, this.mesa[i], p.x, p.y, true);
+            this.debuxarCarta(ctx, this.mesa[i], cx, p.y, true);
 
-            // Selection border on top of card
             if (sel) {
                 ctx.strokeStyle = '#FFD700';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(p.x - 1, p.y - 1, CW + 2, CH + 2);
+                ctx.strokeRect(cx - 1, p.y - 1, CW + 2, CH + 2);
             }
         }
     }
@@ -684,65 +924,89 @@ export default class Xogo extends Escena {
             const hov = (i === this.cartaHover && !sel);
             const yo = sel ? -12 : 0;
 
-            if (hov) {
+            // Shake offset for selected hand card
+            const xOff = sel ? this.tremerDesvio : 0;
+            const cx = p.x + xOff;
+
+            // Shadow beneath selected card
+            if (sel) {
+                ctx.save();
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
+                ctx.shadowBlur = 14;
+                ctx.shadowOffsetX = 0;
+                ctx.shadowOffsetY = 6;
+                ctx.fillStyle = 'black';
+                ctx.fillRect(cx, p.y + yo, CW, CH);
+                ctx.restore();
+            } else if (hov) {
                 ctx.fillStyle = 'rgba(255,255,255,0.15)';
-                ctx.fillRect(p.x - 2, p.y + yo - 2, CW + 4, CH + 4);
+                ctx.fillRect(cx - 2, p.y + yo - 2, CW + 4, CH + 4);
             }
 
-            this.debuxarCarta(ctx, this.manXogador[i], p.x, p.y + yo, true);
+            this.debuxarCarta(ctx, this.manXogador[i], cx, p.y + yo, true);
 
             if (sel) {
                 ctx.strokeStyle = '#FFD700';
                 ctx.lineWidth = 2;
-                ctx.strokeRect(p.x - 1, p.y + yo - 1, CW + 2, CH + 2);
+                ctx.strokeRect(cx - 1, p.y + yo - 1, CW + 2, CH + 2);
             }
         }
     }
 
-    // ── Info bars ──
-    debuxarInfoIA(ctx) {
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(0, Y_AI_INFO, CANVAS_W, 16);
-        ctx.fillStyle = '#e0e0e0';
-        ctx.font = '11px Minipixel';
-        ctx.textAlign = 'left';
-        ctx.fillText(
-            `IA: ${this.puntosIA} pts | Cartas: ${this.capturadasIA.length} | Escobas: ${this.escobasIA}`,
-            8, Y_AI_INFO + 12
-        );
-    }
-
+    // ── Player info bar ──
     debuxarInfoXogador(ctx) {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 16);
+        ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 18);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '11px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.fillText(
             `Ti: ${this.puntosXogador} pts | Cartas: ${this.capturadasXogador.length} | Escobas: ${this.escobasXogador}`,
-            8, Y_PLAYER_INFO + 12
+            8, Y_PLAYER_INFO + 13
         );
     }
 
-    // ── Deck & round indicator ──
+    // ── Deck (stacked cards) & round indicator ──
     debuxarMazo(ctx) {
         const r = this.baralla ? this.baralla.restantes() : 0;
-        // Small card back as deck indicator
+
+        // Center deck vertically in play area
+        const deckY = this.playAreaCenter - CH / 2;
+        const deckX = 3;
+
         if (r > 0) {
             const dorso = this.assets['dorso'];
-            if (dorso) ctx.drawImage(dorso, 10, Y_BUTTONS + 1, 18, 28);
+            if (dorso) {
+                // Draw stacked cards: each offset up and right for depth
+                const stackCount = Math.min(r, 3);
+                for (let i = 0; i < stackCount; i++) {
+                    ctx.drawImage(dorso, deckX + i, deckY - i * 3, CW, CH);
+                }
+            }
+
+            // Card count below deck
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${r}`, deckX + CW / 2, deckY + CH + 12);
         }
+
+        // Round indicator (top-right of play area)
         ctx.fillStyle = 'white';
         ctx.font = '10px Minipixel';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${r}`, 32, Y_BUTTONS + 20);
-
         ctx.textAlign = 'right';
-        ctx.fillText(`Ronda ${this.ronda}`, CANVAS_W - 10, Y_BUTTONS + 20);
+        ctx.fillText(`Ronda ${this.ronda}`, CANVAS_W - 8, this.aiBottom + 16);
     }
 
-    // ── Sum display ──
+    // ── Sum display (below table cards) ──
     debuxarSuma(ctx) {
+        // Find bottom of table cards
+        const pos = this.posicionsMesa();
+        let tableBottom = this.playAreaCenter;
+        for (const p of pos) {
+            if (p.y + CH > tableBottom) tableBottom = p.y + CH;
+        }
+
         const vMan = this.manXogador[this.cartaSel].puntos();
         let sMesa = 0;
         for (const i of this.mesaSel) sMesa += this.mesa[i].puntos();
@@ -754,7 +1018,7 @@ export default class Xogo extends Escena {
         ctx.textAlign = 'center';
         ctx.fillText(
             `${vMan} + ${sMesa} = ${total} ${ok ? '\u2713' : ''}`,
-            CANVAS_W / 2, Y_BUTTONS + 38
+            CANVAS_W / 2, tableBottom + 16
         );
     }
 
@@ -763,7 +1027,7 @@ export default class Xogo extends Escena {
         const isEscoba = this.mensaxe.includes('ESCOBA');
         const w = 220, h = 34;
         const x = (CANVAS_W - w) / 2;
-        const y = (Y_MESA + Y_BUTTONS) / 2 - h / 2;
+        const y = this.playAreaCenter - h / 2;
 
         ctx.fillStyle = 'rgba(0,0,0,0.8)';
         ctx.fillRect(x, y, w, h);
@@ -787,54 +1051,47 @@ export default class Xogo extends Escena {
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FFD700';
         ctx.font = '16px Minipixel';
-        ctx.fillText(`Fin da Ronda ${this.ronda}`, CANVAS_W / 2, 50);
+        ctx.fillText(`Fin da Ronda ${this.ronda}`, CANVAS_W / 2, 30);
 
-        let y = 80;
+        let y = 55;
         const d = this.detallesPuntos;
 
-        // Player scoring
-        ctx.fillStyle = '#4CAF50';
-        ctx.font = '13px Minipixel';
-        ctx.fillText('\u2014 Ti \u2014', CANVAS_W / 2, y);
-        y += 22;
-        ctx.fillStyle = 'white';
-        ctx.font = '11px Minipixel';
-        if (d.xogador.length === 0) {
-            ctx.fillText('Sen puntos', CANVAS_W / 2, y);
-            y += 16;
-        }
-        for (const t of d.xogador) {
-            ctx.fillText(t, CANVAS_W / 2, y);
-            y += 16;
-        }
-        ctx.fillStyle = '#4CAF50';
-        ctx.fillText(`Total: +${d.totalX}`, CANVAS_W / 2, y + 4);
-        y += 28;
+        for (let i = 0; i < d.detalles.length; i++) {
+            const det = d.detalles[i];
+            const isPlayer = (i === 0);
 
-        // AI scoring
-        ctx.fillStyle = '#f44336';
-        ctx.font = '13px Minipixel';
-        ctx.fillText('\u2014 IA \u2014', CANVAS_W / 2, y);
-        y += 22;
-        ctx.fillStyle = 'white';
-        ctx.font = '11px Minipixel';
-        if (d.ia.length === 0) {
-            ctx.fillText('Sen puntos', CANVAS_W / 2, y);
-            y += 16;
-        }
-        for (const t of d.ia) {
-            ctx.fillText(t, CANVAS_W / 2, y);
-            y += 16;
-        }
-        ctx.fillStyle = '#f44336';
-        ctx.fillText(`Total: +${d.totalIA}`, CANVAS_W / 2, y + 4);
-        y += 35;
+            ctx.fillStyle = isPlayer ? '#4CAF50' : '#f44336';
+            ctx.font = '12px Minipixel';
+            ctx.fillText(`\u2014 ${det.nome} \u2014`, CANVAS_W / 2, y);
+            y += 18;
 
-        // Overall score
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Minipixel';
+            if (det.lineas.length === 0) {
+                ctx.fillText('Sen puntos', CANVAS_W / 2, y);
+                y += 14;
+            }
+            for (const t of det.lineas) {
+                ctx.fillText(t, CANVAS_W / 2, y);
+                y += 14;
+            }
+            ctx.fillStyle = isPlayer ? '#4CAF50' : '#f44336';
+            ctx.fillText(`Total: +${det.total}`, CANVAS_W / 2, y + 2);
+            y += 22;
+        }
+
+        // Overall scores
+        y += 5;
         ctx.fillStyle = '#FFD700';
-        ctx.font = '14px Minipixel';
-        ctx.fillText(`Ti ${this.puntosXogador} \u2014 IA ${this.puntosIA}`, CANVAS_W / 2, y);
+        ctx.font = '12px Minipixel';
+        let scoreText = `Ti ${this.puntosXogador}`;
+        for (const ia of this.ias) {
+            scoreText += ` \u2014 ${ia.nome} ${ia.puntos}`;
+        }
+        ctx.fillText(scoreText, CANVAS_W / 2, y);
 
+        // Place continue button below scores
+        this.btnContinuar.y = Math.max(y + 25, CANVAS_H / 2 + 130);
         this.btnContinuar.debuxar(ctx);
     }
 
@@ -843,24 +1100,34 @@ export default class Xogo extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.92)';
         ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
 
-        const won = this.puntosXogador > this.puntosIA;
-        const tie = this.puntosXogador === this.puntosIA;
+        // Determine winner
+        const allScores = [
+            { nome: 'Ti', puntos: this.puntosXogador },
+            ...this.ias.map(ia => ({ nome: ia.nome, puntos: ia.puntos }))
+        ];
+        allScores.sort((a, b) => b.puntos - a.puntos);
+        const won = allScores[0].nome === 'Ti';
 
         ctx.textAlign = 'center';
         ctx.font = '22px Minipixel';
-        ctx.fillStyle = won ? '#FFD700' : tie ? '#aaa' : '#f44336';
+        ctx.fillStyle = won ? '#FFD700' : '#f44336';
         ctx.fillText(
-            won ? '\u00a1VICTORIA!' : tie ? 'EMPATE' : 'DERROTA',
-            CANVAS_W / 2, CANVAS_H / 2 - 50
+            won ? '\u00a1VICTORIA!' : 'DERROTA',
+            CANVAS_W / 2, CANVAS_H / 2 - 60
         );
 
         ctx.fillStyle = 'white';
-        ctx.font = '14px Minipixel';
-        ctx.fillText(`Ti: ${this.puntosXogador} pts`, CANVAS_W / 2, CANVAS_H / 2 - 10);
-        ctx.fillText(`IA: ${this.puntosIA} pts`, CANVAS_W / 2, CANVAS_H / 2 + 15);
-        ctx.font = '11px Minipixel';
-        ctx.fillText(`Rondas xogadas: ${this.ronda}`, CANVAS_W / 2, CANVAS_H / 2 + 45);
+        ctx.font = '13px Minipixel';
+        let y = CANVAS_H / 2 - 25;
+        for (const s of allScores) {
+            ctx.fillText(`${s.nome}: ${s.puntos} pts`, CANVAS_W / 2, y);
+            y += 20;
+        }
 
+        ctx.font = '11px Minipixel';
+        ctx.fillText(`Rondas xogadas: ${this.ronda}`, CANVAS_W / 2, y + 10);
+
+        this.btnMenu.y = Math.max(y + 40, CANVAS_H / 2 + 130);
         this.btnMenu.debuxar(ctx);
     }
 }

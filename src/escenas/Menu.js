@@ -1,40 +1,53 @@
 import Escena from '../Escena.js';
-import Xogo from './Xogo.js';
+import ConfigXogo from './ConfigXogo.js';
 import Boton from '../utiles/Boton.js';
 
 export default class Menu extends Escena {
     constructor(director) {
         super(director);
-        
-        const btnAncho = 200; 
-        const btnAlto = 80;
-        const btnX = (this.director.canvas.width - btnAncho) / 2;
 
-        const assets = this.director.assets;
-        this.comezarBtn = new Boton(
-            btnX, 400, btnAncho, btnAlto,
-            [],
-            [assets['btn_normal'], assets['btn_peneirar'], assets['btn_premido']],
-            '',
-            () => this.director.cambiarEscena(new Xogo(this.director))
+        const cw = this.director.canvas.width;
+        const btnW = 160, btnH = 40;
+        const btnX = (cw - btnW) / 2;
+
+        this.btnEscoba = new Boton(
+            btnX, 300, btnW, btnH,
+            ['#8B4513', '#A0522D', '#6B3410'],
+            [], 'Escoba',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director)),
+            { corTexto: 'white', tamanhoTexto: 16 }
+        );
+
+        this.btnOpcions = new Boton(
+            btnX, 360, btnW, btnH,
+            ['#555', '#777', '#333'],
+            [], 'Opcions',
+            () => {},
+            { corTexto: 'white', tamanhoTexto: 16 }
         );
     }
 
     actualizar(entrada, dt) {
-        this.comezarBtn.actualizar(entrada, dt);
-        this.director.canvas.style.cursor = this.comezarBtn.estado === 'peneirar' ? 'pointer' : 'default';
+        this.btnEscoba.actualizar(entrada, dt);
+        this.btnOpcions.actualizar(entrada, dt);
+
+        const hover = this.btnEscoba.estado === 'peneirar' || this.btnOpcions.estado === 'peneirar';
+        this.director.canvas.style.cursor = hover ? 'pointer' : 'default';
     }
 
     debuxar(ctx) {
-        ctx.clearRect(0, 0, this.director.canvas.width, this.director.canvas.height);
-        const menuBg = this.director.assets['menu_bg'];
-        if (menuBg) {
-             ctx.drawImage(menuBg, 0, 0, this.director.canvas.width, this.director.canvas.height);
-        } else {
-             ctx.fillStyle = "#1a1a1a";
-             ctx.fillRect(0, 0, this.director.canvas.width, this.director.canvas.height);
-        }
+        const cw = this.director.canvas.width;
+        const ch = this.director.canvas.height;
 
-        this.comezarBtn.debuxar(ctx);
+        ctx.fillStyle = '#1a472a';
+        ctx.fillRect(0, 0, cw, ch);
+
+        ctx.fillStyle = '#FFD700';
+        ctx.font = '28px Minipixel';
+        ctx.textAlign = 'center';
+        ctx.fillText('ESCOBA', cw / 2, 200);
+
+        this.btnEscoba.debuxar(ctx);
+        this.btnOpcions.debuxar(ctx);
     }
 }
