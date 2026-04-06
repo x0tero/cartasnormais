@@ -12,6 +12,7 @@ export default class Boton {
         this.deshabilitado = false;
         this.corTexto = opcions.corTexto || 'black';
         this.tamanhoTexto = opcions.tamanhoTexto || 12;
+        this.instantaneo = opcions.instantaneo || false;
     }
 
     actualizar(entrada, dt) {
@@ -29,10 +30,15 @@ export default class Boton {
         if (entrada.clicado && dentro && this.estado !== 'premido') {
             this.estado = 'premido';
             if (this.enClic) {
-                setTimeout(() => {
-                    this.resetar();
+                if (this.instantaneo) {
                     this.enClic();
-                }, 200);
+                    this.resetar();
+                } else {
+                    setTimeout(() => {
+                        this.resetar();
+                        this.enClic();
+                    }, 200);
+                }
             }
             return true;
         }
@@ -67,11 +73,14 @@ export default class Boton {
         ctx.fillRect(this.x, this.y, this.ancho, this.alto);
 
         if (this.texto) {
+            ctx.save();
+            if (this.estado === 'deshabilitado') ctx.globalAlpha = 0.35;
             ctx.fillStyle = this.corTexto;
             ctx.font = `${this.tamanhoTexto}px Minipixel`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.texto, this.x + this.ancho / 2, this.y + this.alto / 2);
+            ctx.restore();
         }
     }
 

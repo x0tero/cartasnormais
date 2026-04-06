@@ -2,6 +2,7 @@ import Escena from '../Escena.js';
 import Baralla from '../Baralla.js';
 import Boton from '../utiles/Boton.js';
 import AnimacionDesprazamento from '../utiles/animacions/AnimacionDesprazamento.js';
+import AnimacionCaptura from '../utiles/animacions/AnimacionCaptura.js';
 
 // ── DISPLAY CONSTANTS ──────────────────────────
 const CW = 48;          // Card width (original sprite size)
@@ -9,18 +10,20 @@ const CH = 76;          // Card height (original sprite size)
 const GAP = 8;
 const CANVAS_W = 380;
 const CANVAS_H = 600;
-const COLS_MESA = 5;
+const COLS_MESA = 4;
 
 // AI compact bar height
 const AI_BAR_H = 28;
+const CORES_IA = ['#e03030', '#3070e0', '#30b040'];
 
 // Bottom layout (fixed from canvas bottom)
-const Y_PLAYER_INFO = CANVAS_H - 18;
+const Y_PLAYER_INFO = CANVAS_H - 24;
 const Y_PLAYER_HAND = Y_PLAYER_INFO - CH - 6;
-const Y_BUTTONS = Y_PLAYER_HAND - 42;
+const Y_BUTTONS = Y_PLAYER_HAND - 52;
 
 // Game states
 const ESTADO = {
+    DADO: -1,
     TURNO_XOGADOR: 0,
     TURNO_IA: 1,
     FIN_RONDA: 2,
@@ -31,7 +34,7 @@ export default class Xogo extends Escena {
     constructor(director, config = {}) {
         super(director);
         this.assets = director.assets;
-        this.puntosMeta = 21;
+        this.puntosMeta = config.puntosMeta || 21;
 
         const numOponentes = config.numOponentes || 1;
         const dificultades = config.dificultades || ['medio'];
@@ -62,12 +65,13 @@ export default class Xogo extends Escena {
         this.numXogadores = 1 + numOponentes;
 
         // Play area bounds (between AI bars and buttons)
-        this.aiBottom = this.ias.length * AI_BAR_H;
+        this.aiBottom = this.ias.length * (AI_BAR_H + 1);
         this.playAreaCenter = this.aiBottom + (Y_BUTTONS - this.aiBottom) / 2;
 
         // UI interaction state
         this.estado = ESTADO.TURNO_XOGADOR;
         this.turnoActual = 0; // 0 = player, 1+ = IA index
+        this.xogadorInicio = 0; // who starts each round (rotates)
         this.cartaSel = -1;
         this.mesaSel = new Set();
         this.mensaxe = '';
@@ -88,14 +92,21 @@ export default class Xogo extends Escena {
         this.estaAnimando = false;
         this.tremerTempo = 0;
         this.tremerDesvio = 0;
+        this.ocultarMesa = new Set();   // mesa indices hidden during animation
+        this.ocultarMan = -1;           // hand index hidden during animation
+
+        // Pause menu
+        this.pausado = false;
+        this._voltandoDePausa = false;
 
         // Buttons
-        const bw = 80, bh = 28;
+        const bw = 80, bh = 28, bwCap = 90;
         this.btnCapturar = new Boton(
-            CANVAS_W / 2 - bw - 4, Y_BUTTONS, bw, bh,
+            CANVAS_W / 2 - bwCap - 4, Y_BUTTONS, bwCap, bh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a', '#444'],
             [], 'Capturar',
-            () => this.executarCaptura()
+            () => this.executarCaptura(),
+            { tamanhoTexto: 10 }
         );
         this.btnCapturar.deshabilitado = true;
 
@@ -103,7 +114,8 @@ export default class Xogo extends Escena {
             CANVAS_W / 2 + 4, Y_BUTTONS, bw, bh,
             ['#7a4a2a', '#9a5a3a', '#5a3a1a', '#444'],
             [], 'Soltar',
-            () => this.executarSoltar()
+            () => this.executarSoltar(),
+            { tamanhoTexto: 10 }
         );
         this.btnSoltar.deshabilitado = true;
 
@@ -125,6 +137,60 @@ export default class Xogo extends Escena {
             }
         );
 
+        // Cog / pause button (below AI info, left side)
+        const cogSize = 24;
+        this.btnCog = new Boton(
+            6, this.aiBottom + 4, cogSize, cogSize,
+            ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
+            [], '\u2699',
+            () => { this.pausado = true; },
+            { corTexto: '#fff', tamanhoTexto: 16 }
+        );
+
+        // Pause popup dimensions
+        const popupW = 180, popupH = 120;
+        const popupX = CANVAS_W / 2 - popupW / 2;
+        const popupY = CANVAS_H / 2 - popupH / 2;
+        this.popupPausa = { x: popupX, y: popupY, w: popupW, h: popupH };
+
+        const pbw = 140, pbh = 28;
+        const pbx = popupX + (popupW - pbw) / 2;
+        this.btnResumir = new Boton(
+            pbx, popupY + 45, pbw, pbh,
+            ['#2a7a2a', '#3a9a3a', '#1a5a1a'],
+            [], 'Continuar',
+            () => { this.pausado = false; this._voltandoDePausa = true; },
+            { corTexto: '#fff', tamanhoTexto: 12 }
+        );
+        this.btnVolverMenu = new Boton(
+            pbx, popupY + 82, pbw, pbh,
+            ['#7a2a2a', '#9a3a3a', '#5a1a1a'],
+            [], 'Volver ao menu',
+            () => {
+                import('./Menu.js').then(m => {
+                    this.director.cambiarEscena(new m.default(this.director));
+                });
+            },
+            { corTexto: '#fff', tamanhoTexto: 9 }
+        );
+
+        // Dice roll state
+        this.dado = {
+            fase: 'tirando',   // tirando → resultado → spinner → fin
+            caraActual: 1,
+            resultado: 0,
+            tempo: 0,
+            intervalo: 80,     // ms between face changes (speeds up then slows)
+            duracion: 2000,    // total rolling time
+            spinnerIdx: 0,     // current highlighted player in spinner
+            spinnerPasos: 0,   // total steps to take
+            spinnerFeitos: 0,  // steps done
+            spinnerTempo: 0,
+            spinnerIntervalo: 150,
+            pausaTempo: 0,
+        };
+
+        this.estado = ESTADO.DADO;
         this.iniciarRonda();
     }
 
@@ -147,7 +213,6 @@ export default class Xogo extends Escena {
         this.cartaSel = -1;
         this.mesaSel.clear();
         this.detallesPuntos = null;
-        this.turnoActual = 0;
 
         // Deal: 4 to table, 3 to each player
         this.mesa = this.baralla.repartir(4);
@@ -156,17 +221,106 @@ export default class Xogo extends Escena {
             ia.man = this.baralla.repartir(3);
         }
 
-        this.estado = ESTADO.TURNO_XOGADOR;
         this.reproducirSon('son_barallar');
-        this.mostrarMsg('Tu turno');
+        if (this.estado === ESTADO.DADO) {
+            // First round: dice decides who starts
+        } else {
+            // Advance starting player for this round
+            this.xogadorInicio = (this.xogadorInicio + 1) % this.numXogadores;
+            this.turnoActual = this.xogadorInicio;
+            this.iniciarTurno();
+        }
     }
 
-    repartirMais() {
-        this.manXogador = this.baralla.repartir(3);
-        for (const ia of this.ias) {
-            ia.man = this.baralla.repartir(3);
+    iniciarTurno() {
+        const nomes = ['Ti', ...this.ias.map(ia => ia.nome)];
+        if (this.turnoActual === 0) {
+            this.estado = ESTADO.TURNO_XOGADOR;
+            this.mostrarMsg('O teu turno');
+        } else {
+            this.estado = ESTADO.TURNO_IA;
+            this.tempIA = 0;
+            this.mostrarMsg(`Empeza ${nomes[this.turnoActual]}`);
         }
+    }
+
+    repartirMais(enRemate) {
+        // Track visual deck count (before cards are drawn)
+        this.mazoVisual = this.baralla.restantes();
+
+        const cartasXogador = this.baralla.repartir(3);
+        const cartasIAs = this.ias.map(() => this.baralla.repartir(3));
+
+        const deckX = 15;
+        const deckY = this.playAreaCenter;
+
+        // Build dealing order: round-robin, 1 card per player per round
+        const deals = [];
+        for (let round = 0; round < 3; round++) {
+            // Player card — compute target based on how many cards will be in hand
+            deals.push({
+                carta: cartasXogador[round],
+                tipo: 'xogador',
+                round
+            });
+            // IA cards
+            for (let j = 0; j < this.ias.length; j++) {
+                deals.push({
+                    carta: cartasIAs[j][round],
+                    tipo: 'ia',
+                    iaIdx: j,
+                    round
+                });
+            }
+        }
+
+        // Chain animations: each card appears in hand when its animation lands
+        const lanzarSeguinte = (idx) => {
+            if (idx >= deals.length) {
+                this.mazoVisual = null;
+                if (enRemate) enRemate();
+                return;
+            }
+
+            const d = deals[idx];
+            let toX, toY, cardId;
+
+            if (d.tipo === 'xogador') {
+                // Target position based on current hand size + 1
+                const futureLen = this.manXogador.length + 1;
+                const pPos = this.posicionsMan(futureLen, Y_PLAYER_HAND);
+                toX = pPos[futureLen - 1].x;
+                toY = pPos[futureLen - 1].y;
+                cardId = d.carta.valor;
+            } else {
+                const ia = this.ias[d.iaIdx];
+                const futureLen = ia.man.length + 1;
+                const startX = CANVAS_W - 8 - futureLen * (16 + 2);
+                toX = startX + (futureLen - 1) * (16 + 2);
+                toY = d.iaIdx * (AI_BAR_H + 2) + 2;
+                cardId = 'dorso';
+            }
+
+            this.animacions.push(new AnimacionDesprazamento(
+                this.assets, CW, CH, cardId,
+                deckX, deckY, toX, toY,
+                () => {
+                    // Add card to hand on arrival and update visual deck count
+                    if (d.tipo === 'xogador') {
+                        this.manXogador.push(d.carta);
+                    } else {
+                        this.ias[d.iaIdx].man.push(d.carta);
+                    }
+                    this.mazoVisual--;
+                    this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
+                    lanzarSeguinte(idx + 1);
+                },
+                0.15
+            ));
+        };
+
         this.reproducirSon('son_barallar');
+        lanzarSeguinte(0);
     }
 
     pasarTurno() {
@@ -181,10 +335,13 @@ export default class Xogo extends Escena {
 
         if (todasVacias) {
             if (this.baralla.restantes() > 0) {
-                this.repartirMais();
-                this.turnoActual = 0;
+                // Block input during dealing by temporarily setting player turn
+                // (animations will block processing anyway)
                 this.estado = ESTADO.TURNO_XOGADOR;
-                this.mostrarMsg('Tu turno');
+                this.repartirMais(() => {
+                    this.turnoActual = this.xogadorInicio;
+                    this.iniciarTurno();
+                });
             } else {
                 this.finalizarRonda();
             }
@@ -196,7 +353,7 @@ export default class Xogo extends Escena {
 
         if (this.turnoActual === 0) {
             this.estado = ESTADO.TURNO_XOGADOR;
-            this.mostrarMsg('Tu turno');
+            this.mostrarMsg('O teu turno');
         } else {
             this.estado = ESTADO.TURNO_IA;
             this.tempIA = 0;
@@ -271,20 +428,20 @@ export default class Xogo extends Escena {
             d.detalles[idx].total += 1;
         }
 
-        // 4. Sevens: +3 for all four, or +1 for 7 de ouros
+        // 4. Sevens: +1 for most (tie = nobody), +1 for 7 de ouros
         const setesCounts = xogadores.map(x => x.capturadas.filter(c => c.esSete()).length);
         const maxSetes = Math.max(...setesCounts);
-        if (maxSetes === 4) {
-            const idx = setesCounts.indexOf(4);
-            d.detalles[idx].lineas.push('Todos os setes: +3');
-            d.detalles[idx].total += 3;
-        } else {
-            for (let i = 0; i < xogadores.length; i++) {
-                if (xogadores[i].capturadas.some(c => c.valor === 7)) {
-                    d.detalles[i].lineas.push('Sete de ouros: +1');
-                    d.detalles[i].total += 1;
-                    break;
-                }
+        const maxSetesCount = setesCounts.filter(c => c === maxSetes).length;
+        if (maxSetesCount === 1 && maxSetes > 0) {
+            const idx = setesCounts.indexOf(maxSetes);
+            d.detalles[idx].lineas.push(`Mais setes (${maxSetes}): +1`);
+            d.detalles[idx].total += 1;
+        }
+        for (let i = 0; i < xogadores.length; i++) {
+            if (xogadores[i].capturadas.some(c => c.valor === 7)) {
+                d.detalles[i].lineas.push('Sete de ouros: +1');
+                d.detalles[i].total += 1;
+                break;
             }
         }
 
@@ -369,7 +526,6 @@ export default class Xogo extends Escena {
         if (this.cartaSel < 0 || this.mesaSel.size === 0) return;
         if (this.sumaSeleccion() !== 15) return;
 
-        // Get positions before modifying arrays
         const hp = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
         const tp = this.posicionsMesa();
         const handPos = hp[this.cartaSel];
@@ -378,48 +534,55 @@ export default class Xogo extends Escena {
 
         const cartaMan = this.manXogador[this.cartaSel];
         const indices = Array.from(this.mesaSel).sort((a, b) => b - a);
-
-        // Collect card positions and values before removal
         const cardAnims = indices.map(idx => ({
             valor: this.mesa[idx].valor, x: tp[idx].x, y: tp[idx].y
         }));
 
-        // Modify game state
-        const capturadas = [cartaMan];
-        for (const idx of indices) {
-            capturadas.push(this.mesa[idx]);
-            this.mesa.splice(idx, 1);
-        }
-        this.manXogador.splice(this.cartaSel, 1);
-        this.capturadasXogador.push(...capturadas);
-        this.ultimoCapturador = 'xogador';
+        // Hide animated cards from normal rendering (don't modify state yet)
+        this.ocultarMan = this.cartaSel;
+        for (const idx of indices) this.ocultarMesa.add(idx);
 
-        const isEscoba = this.mesa.length === 0;
-        if (isEscoba) {
-            this.escobasXogador++;
-            this.mostrarMsg('¡ESCOBA!', 2500);
-            this.reproducirSon('son_axitaMascara');
-        }
-
-        // Create animations: hand card + table cards fly to capture zone
-        this.animacions.push(new AnimacionDesprazamento(
-            this.assets, CW, CH, cartaMan.valor,
-            handPos.x, handPos.y - 12, destX, destY, null
-        ));
-        const lastIdx = cardAnims.length - 1;
-        for (let i = 0; i < cardAnims.length; i++) {
-            const ca = cardAnims[i];
-            this.animacions.push(new AnimacionDesprazamento(
-                this.assets, CW, CH, ca.valor,
-                ca.x, ca.y, destX, destY,
-                (i === lastIdx) ? () => this.pasarTurno() : null
-            ));
-        }
-
-        this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
+        const selCard = this.cartaSel;
+        const selMesa = new Set(this.mesaSel);
         this.cartaSel = -1;
         this.mesaSel.clear();
         this.actualizarBotns();
+
+        // Create stacking capture animation; commit state on completion
+        this.animacions.push(new AnimacionCaptura(
+            this.assets, CW, CH,
+            { valor: cartaMan.valor, x: handPos.x, y: handPos.y - 12 },
+            cardAnims,
+            { x: destX, y: destY },
+            () => {
+                // Now commit game state
+                const capturadas = [cartaMan];
+                for (const idx of indices) {
+                    capturadas.push(this.mesa[idx]);
+                }
+                // Remove from mesa in reverse order
+                for (const idx of indices) {
+                    this.mesa.splice(idx, 1);
+                }
+                this.manXogador.splice(selCard, 1);
+                this.capturadasXogador.push(...capturadas);
+                this.ultimoCapturador = 'xogador';
+
+                const isEscoba = this.mesa.length === 0;
+                this.ocultarMesa.clear();
+                this.ocultarMan = -1;
+                if (isEscoba) {
+                    this.escobasXogador++;
+                    this.reproducirSon('son_axitaMascara');
+                    this.mostrarMsg('¡ESCOBA!', 2500, () => this.pasarTurno());
+                } else {
+                    this.pasarTurno();
+                }
+            },
+            true // abaixo: player stack style
+        ));
+
+        this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
     }
 
     executarSoltar() {
@@ -461,48 +624,53 @@ export default class Xogo extends Escena {
         if (this.tempIA < this.RETARDO_IA) return;
 
         const ia = this.ias[this.turnoActual - 1];
+        if (!ia || ia.man.length === 0) return;
         const iaIdx = this.turnoActual - 1;
         const iaBarX = CANVAS_W - 20;
-        const iaBarY = iaIdx * AI_BAR_H + 4;
+        const iaBarY = iaIdx * (AI_BAR_H + 2) + 4;
         const xogada = this.mellorXogadaIA(ia);
 
         if (xogada) {
-            // Get table positions before removal
             const tp = this.posicionsMesa();
             const indices = xogada.iMesa.sort((a, b) => b - a);
             const cardAnims = indices.map(idx => ({
                 valor: this.mesa[idx].valor, x: tp[idx].x, y: tp[idx].y
             }));
 
-            // Modify game state
             const carta = ia.man[xogada.iCarta];
-            const capturadas = [carta];
-            for (const idx of indices) {
-                capturadas.push(this.mesa[idx]);
-                this.mesa.splice(idx, 1);
-            }
-            ia.man.splice(xogada.iCarta, 1);
-            ia.capturadas.push(...capturadas);
-            this.ultimoCapturador = ia.nome;
 
-            if (this.mesa.length === 0) {
-                ia.escobas++;
-                this.mostrarMsg(`${ia.nome}: ¡ESCOBA!`, 2500);
-                this.reproducirSon('son_axitaMascara');
-            } else {
-                this.mostrarMsg(`${ia.nome} capturou cartas`);
-            }
+            // Hide animated cards from normal rendering
+            for (const idx of indices) this.ocultarMesa.add(idx);
 
-            // Animate captured cards flying to AI bar
-            const lastIdx = cardAnims.length - 1;
-            for (let i = 0; i < cardAnims.length; i++) {
-                const ca = cardAnims[i];
-                this.animacions.push(new AnimacionDesprazamento(
-                    this.assets, CW, CH, ca.valor,
-                    ca.x, ca.y, iaBarX, iaBarY,
-                    (i === lastIdx) ? () => this.pasarTurno() : null
-                ));
-            }
+            // Animate stacking capture to AI bar; commit state on completion
+            this.animacions.push(new AnimacionCaptura(
+                this.assets, CW, CH,
+                { valor: carta.valor, x: iaBarX, y: iaBarY },
+                cardAnims,
+                { x: iaBarX, y: iaBarY },
+                () => {
+                    const capturadas = [carta];
+                    for (const idx of indices) {
+                        capturadas.push(this.mesa[idx]);
+                    }
+                    for (const idx of indices) {
+                        this.mesa.splice(idx, 1);
+                    }
+                    ia.man.splice(xogada.iCarta, 1);
+                    ia.capturadas.push(...capturadas);
+                    this.ultimoCapturador = ia.nome;
+
+                    const isEscobaIA = this.mesa.length === 0;
+                    this.ocultarMesa.clear();
+                    if (isEscobaIA) {
+                        ia.escobas++;
+                        this.reproducirSon('son_axitaMascara');
+                        this.mostrarMsg(`${ia.nome}: ¡ESCOBA!`, 2500, () => this.pasarTurno());
+                    } else {
+                        this.mostrarMsg(`${ia.nome} capturou cartas`, 1500, () => this.pasarTurno());
+                    }
+                }
+            ));
         } else {
             const idx = this.cartaIAParaSoltar(ia);
             const carta = ia.man.splice(idx, 1)[0];
@@ -513,17 +681,15 @@ export default class Xogo extends Escena {
             const toPos = { x: tp[tp.length - 1].x, y: tp[tp.length - 1].y };
             this.mesa.pop();
 
-            // Animate card from AI bar to table
+            // Animate card from AI bar to table, then announce
             this.animacions.push(new AnimacionDesprazamento(
                 this.assets, CW, CH, carta.valor,
                 iaBarX, iaBarY, toPos.x, toPos.y,
                 () => {
                     this.mesa.push(carta);
-                    this.pasarTurno();
+                    this.mostrarMsg(`${ia.nome} soltou carta`, 1500, () => this.pasarTurno());
                 }
             ));
-
-            this.mostrarMsg(`${ia.nome} soltou carta`);
         }
 
         this.reproducirSon(`son_dar${1 + Math.floor(Math.random() * 6)}`);
@@ -638,12 +804,160 @@ export default class Xogo extends Escena {
     }
 
     // ═══════════════════════════════════════════
+    //  DICE ROLL
+    // ═══════════════════════════════════════════
+
+    actualizarDado(dt) {
+        const d = this.dado;
+        const nomes = ['Ti', ...this.ias.map(ia => ia.nome)];
+
+        if (d.fase === 'tirando') {
+            d.tempo += dt;
+            // Slow down towards the end
+            const progress = Math.min(d.tempo / d.duracion, 1);
+            const intervalo = 80 + progress * 200;
+            d.intervalo -= dt;
+            if (d.intervalo <= 0) {
+                d.caraActual = 1 + Math.floor(Math.random() * 6);
+                d.intervalo = intervalo;
+            }
+            if (d.tempo >= d.duracion) {
+                d.resultado = 1 + Math.floor(Math.random() * 6);
+                d.caraActual = d.resultado;
+                d.fase = 'resultado';
+                d.pausaTempo = 1200;
+                // Calculate spinner: total steps = dice result, cycle through players
+                d.spinnerPasos = d.resultado;
+                d.spinnerFeitos = 0;
+                d.spinnerIdx = -1;
+            }
+        } else if (d.fase === 'resultado') {
+            d.pausaTempo -= dt;
+            if (d.pausaTempo <= 0) {
+                d.fase = 'spinner';
+                d.spinnerTempo = 0;
+                d.spinnerIntervalo = 200;
+            }
+        } else if (d.fase === 'spinner') {
+            d.spinnerTempo += dt;
+            if (d.spinnerTempo >= d.spinnerIntervalo) {
+                d.spinnerTempo = 0;
+                d.spinnerFeitos++;
+                d.spinnerIdx = (d.spinnerIdx + 1) % nomes.length;
+                // Slow down on last steps
+                const remaining = d.spinnerPasos - d.spinnerFeitos;
+                if (remaining <= 2) d.spinnerIntervalo = 400;
+                else if (remaining <= 4) d.spinnerIntervalo = 300;
+                if (d.spinnerFeitos >= d.spinnerPasos) {
+                    d.fase = 'fin';
+                    d.pausaTempo = 1500;
+                }
+            }
+        } else if (d.fase === 'fin') {
+            d.pausaTempo -= dt;
+            if (d.pausaTempo <= 0) {
+                // Start the game with the chosen player
+                this.xogadorInicio = d.spinnerIdx;
+                this.turnoActual = d.spinnerIdx;
+                this.iniciarTurno();
+            }
+        }
+    }
+
+    debuxarDado(ctx) {
+        const d = this.dado;
+        const nomes = ['Ti', ...this.ias.map(ia => ia.nome)];
+
+        // Dim background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+        // Popup box
+        const popW = 200, popH = 160;
+        const popX = CANVAS_W / 2 - popW / 2;
+        const popY = CANVAS_H / 2 - popH / 2 - 20;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(popX + 3, popY + 3, popW, popH);
+        // Box
+        ctx.fillStyle = '#222';
+        ctx.fillRect(popX, popY, popW, popH);
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(popX, popY, popW, popH);
+
+        // Title
+        ctx.fillStyle = '#ffd700';
+        ctx.font = '12px Minipixel';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillText('Quen empeza?', popX + popW / 2, popY + 10);
+
+        // Draw dice face
+        const diceSize = 50;
+        const diceX = CANVAS_W / 2 - diceSize / 2;
+        const diceY = popY + 32;
+        this.debuxarCaraDado(ctx, d.caraActual, diceX, diceY, diceSize);
+
+        // Player list with spinner highlight
+        if (d.fase === 'spinner' || d.fase === 'fin') {
+            const listY = diceY + diceSize + 14;
+            const lineH = 16;
+            ctx.font = '10px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let i = 0; i < nomes.length; i++) {
+                const ny = listY + i * lineH;
+                if (i === d.spinnerIdx) {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillRect(popX + 20, ny - 1, popW - 40, lineH);
+                    ctx.fillStyle = '#222';
+                } else {
+                    ctx.fillStyle = '#aaa';
+                }
+                ctx.fillText(nomes[i], popX + popW / 2, ny + 1);
+            }
+        }
+
+        ctx.textBaseline = 'alphabetic';
+    }
+
+    debuxarCaraDado(ctx, cara, x, y, size) {
+        // White dice with rounded look
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x, y, size, size);
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, size, size);
+
+        // Dot positions (relative to dice, 0-1 range)
+        const dots = {
+            1: [[0.5, 0.5]],
+            2: [[0.25, 0.25], [0.75, 0.75]],
+            3: [[0.25, 0.25], [0.5, 0.5], [0.75, 0.75]],
+            4: [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]],
+            5: [[0.25, 0.25], [0.75, 0.25], [0.5, 0.5], [0.25, 0.75], [0.75, 0.75]],
+            6: [[0.25, 0.2], [0.75, 0.2], [0.25, 0.5], [0.75, 0.5], [0.25, 0.8], [0.75, 0.8]],
+        };
+
+        const r = size * 0.07;
+        ctx.fillStyle = '#222';
+        for (const [dx, dy] of dots[cara] || dots[1]) {
+            ctx.beginPath();
+            ctx.arc(x + dx * size, y + dy * size, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    // ═══════════════════════════════════════════
     //  UTILITY
     // ═══════════════════════════════════════════
 
-    mostrarMsg(txt, duracion = 1500) {
+    mostrarMsg(txt, duracion = 1500, enRemate = null) {
         this.mensaxe = txt;
         this.tempMsg = duracion;
+        this.msgEnRemate = enRemate;
     }
 
     reproducirSon(nome) {
@@ -685,7 +999,7 @@ export default class Xogo extends Escena {
             const rowStart = row * COLS_MESA;
             const inRow = Math.min(COLS_MESA, n - rowStart);
             const rw = inRow * CW + (inRow - 1) * GAP;
-            const sx = (CANVAS_W - rw) / 2;
+            const sx = (CANVAS_W - rw) / 2 + 10;
             pos.push({
                 x: sx + col * (CW + GAP),
                 y: yStart + row * (CH + GAP)
@@ -699,7 +1013,38 @@ export default class Xogo extends Escena {
     // ═══════════════════════════════════════════
 
     actualizar(entrada, dt) {
-        if (this.tempMsg > 0) this.tempMsg -= dt;
+        // Pause menu
+        if (this.pausado) {
+            this.btnResumir.actualizar(entrada, dt);
+            this.btnVolverMenu.actualizar(entrada, dt);
+            this.director.canvas.style.cursor =
+                (this.btnResumir.estado === 'peneirar' || this.btnVolverMenu.estado === 'peneirar') ? 'pointer' : 'default';
+            return;
+        }
+
+        // Skip one frame after resuming to prevent click leaking into game
+        if (this._voltandoDePausa) {
+            this._voltandoDePausa = false;
+            return;
+        }
+
+        // Cog button (available during gameplay states)
+        if (this.estado === ESTADO.TURNO_XOGADOR || this.estado === ESTADO.TURNO_IA) {
+            if (this.btnCog.actualizar(entrada, dt)) return;
+        }
+
+        if (this.tempMsg > 0) {
+            this.tempMsg -= dt;
+            if (this.tempMsg <= 0) {
+                this.tempMsg = 0;
+                if (this.msgEnRemate) {
+                    const cb = this.msgEnRemate;
+                    this.msgEnRemate = null;
+                    cb();
+                    return;
+                }
+            }
+        }
 
         // Process shake timer
         if (this.tremerTempo > 0) {
@@ -723,7 +1068,15 @@ export default class Xogo extends Escena {
         }
         this.estaAnimando = false;
 
+        // Block turn processing while waiting for a message callback
+        if (this.msgEnRemate) return;
+
         switch (this.estado) {
+            case ESTADO.DADO:
+                this.director.canvas.style.cursor = 'default';
+                this.actualizarDado(dt);
+                break;
+
             case ESTADO.TURNO_XOGADOR:
                 this.actualizarHover(entrada);
                 this.btnCapturar.actualizar(entrada, dt);
@@ -800,15 +1153,52 @@ export default class Xogo extends Escena {
             }
         }
 
-        if (this.tempMsg > 0) this.debuxarMsg(ctx);
-
-        // Draw animations on top of everything
+        // Draw animations on top of game elements
         for (const anim of this.animacions) {
             anim.debuxar(ctx);
         }
 
+        // Draw message on top of animations
+        if (this.tempMsg > 0) this.debuxarMsg(ctx);
+
+        if (this.estado === ESTADO.DADO) this.debuxarDado(ctx);
         if (this.estado === ESTADO.FIN_RONDA) this.debuxarFinRonda(ctx);
         if (this.estado === ESTADO.FIN_XOGO) this.debuxarFinXogo(ctx);
+
+        // Cog button during gameplay
+        if (!this.pausado && (this.estado === ESTADO.TURNO_XOGADOR || this.estado === ESTADO.TURNO_IA)) {
+            this.btnCog.debuxar(ctx);
+        }
+
+        // Pause overlay
+        if (this.pausado) {
+            const p = this.popupPausa;
+
+            // Dim background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+            // Shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(p.x + 3, p.y + 3, p.w, p.h);
+
+            // Box
+            ctx.fillStyle = '#222';
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.strokeStyle = '#ffd700';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(p.x, p.y, p.w, p.h);
+
+            // Title
+            ctx.fillStyle = '#ffd700';
+            ctx.font = '14px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);
+
+            this.btnResumir.debuxar(ctx);
+            this.btnVolverMenu.debuxar(ctx);
+        }
     }
 
     // ── Background ──
@@ -829,7 +1219,7 @@ export default class Xogo extends Escena {
             ctx.fillRect(x, y, CW, CH);
             if (bocaArriba) {
                 ctx.fillStyle = '#000';
-                ctx.font = '10px Minipixel';
+                ctx.font = '9px Minipixel';
                 ctx.textAlign = 'center';
                 ctx.fillText(carta.puntos(), x + CW / 2, y + CH / 2);
             }
@@ -842,26 +1232,25 @@ export default class Xogo extends Escena {
 
         for (let i = 0; i < this.ias.length; i++) {
             const ia = this.ias[i];
-            const y = i * AI_BAR_H;
+            const y = i * (AI_BAR_H + 2);
 
             // Bar background (highlight current AI's turn)
             const isActive = this.estado === ESTADO.TURNO_IA && this.turnoActual - 1 === i;
             ctx.fillStyle = isActive ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)';
             ctx.fillRect(0, y, CANVAS_W, AI_BAR_H);
 
-            if (isActive) {
-                ctx.strokeStyle = '#FFD700';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(0, y, CANVAS_W, AI_BAR_H);
-            }
+            ctx.strokeStyle = isActive ? '#FFD700' : CORES_IA[i];
+            ctx.lineWidth = isActive ? 2 : 1;
+            ctx.strokeRect(0, y, CANVAS_W, AI_BAR_H);
 
             // Difficulty label
             const difLabel = { facil: 'F', medio: 'M', dificil: 'D' }[ia.dificultade];
 
             // Info text
             ctx.fillStyle = '#e0e0e0';
-            ctx.font = '10px Minipixel';
+            ctx.font = '9px Minipixel';
             ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
             ctx.fillText(
                 `${ia.nome} (${difLabel}): ${ia.puntos} pts | Cap: ${ia.capturadas.length} | Esc: ${ia.escobas}`,
                 8, y + 17
@@ -882,6 +1271,7 @@ export default class Xogo extends Escena {
     debuxarMesa(ctx) {
         const pos = this.posicionsMesa();
         for (let i = 0; i < this.mesa.length; i++) {
+            if (this.ocultarMesa.has(i)) continue;
             const p = pos[i];
             const sel = this.mesaSel.has(i);
             const hov = (i === this.mesaHover && this.cartaSel >= 0);
@@ -919,6 +1309,7 @@ export default class Xogo extends Escena {
     debuxarManXogador(ctx) {
         const pos = this.posicionsMan(this.manXogador.length, Y_PLAYER_HAND);
         for (let i = 0; i < this.manXogador.length; i++) {
+            if (i === this.ocultarMan) continue;
             const p = pos[i];
             const sel = (i === this.cartaSel);
             const hov = (i === this.cartaHover && !sel);
@@ -958,8 +1349,9 @@ export default class Xogo extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 18);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '10px Minipixel';
+        ctx.font = '9px Minipixel';
         ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
         ctx.fillText(
             `Ti: ${this.puntosXogador} pts | Cartas: ${this.capturadasXogador.length} | Escobas: ${this.escobasXogador}`,
             8, Y_PLAYER_INFO + 13
@@ -968,11 +1360,11 @@ export default class Xogo extends Escena {
 
     // ── Deck (stacked cards) & round indicator ──
     debuxarMazo(ctx) {
-        const r = this.baralla ? this.baralla.restantes() : 0;
+        const r = this.mazoVisual != null ? this.mazoVisual : (this.baralla ? this.baralla.restantes() : 0);
 
         // Center deck vertically in play area
-        const deckY = this.playAreaCenter - CH / 2;
-        const deckX = 3;
+        const deckY = this.playAreaCenter;
+        const deckX = 15;
 
         if (r > 0) {
             const dorso = this.assets['dorso'];
@@ -980,20 +1372,20 @@ export default class Xogo extends Escena {
                 // Draw stacked cards: each offset up and right for depth
                 const stackCount = Math.min(r, 3);
                 for (let i = 0; i < stackCount; i++) {
-                    ctx.drawImage(dorso, deckX + i, deckY - i * 3, CW, CH);
+                    ctx.drawImage(dorso, deckX, deckY - i * 3, CW, CH);
                 }
             }
 
             // Card count below deck
             ctx.fillStyle = 'white';
-            ctx.font = '10px Minipixel';
+            ctx.font = '9px Minipixel';
             ctx.textAlign = 'center';
             ctx.fillText(`${r}`, deckX + CW / 2, deckY + CH + 12);
         }
 
         // Round indicator (top-right of play area)
         ctx.fillStyle = 'white';
-        ctx.font = '10px Minipixel';
+        ctx.font = '9px Minipixel';
         ctx.textAlign = 'right';
         ctx.fillText(`Ronda ${this.ronda}`, CANVAS_W - 8, this.aiBottom + 16);
     }
@@ -1014,28 +1406,34 @@ export default class Xogo extends Escena {
         const ok = (total === 15);
 
         ctx.fillStyle = ok ? '#00ff00' : '#ffaa00';
-        ctx.font = '11px Minipixel';
+        ctx.font = '9px Minipixel';
         ctx.textAlign = 'center';
         ctx.fillText(
             `${vMan} + ${sMesa} = ${total} ${ok ? '\u2713' : ''}`,
-            CANVAS_W / 2, tableBottom + 16
+            CANVAS_W / 2, tableBottom + 22
         );
     }
 
     // ── Floating message ──
     debuxarMsg(ctx) {
         const isEscoba = this.mensaxe.includes('ESCOBA');
-        const w = 220, h = 34;
+        ctx.font = isEscoba ? '16px Minipixel' : '12px Minipixel';
+        const textW = ctx.measureText(this.mensaxe).width;
+        const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2;
         const y = this.playAreaCenter - h / 2;
 
-        ctx.fillStyle = 'rgba(0,0,0,0.8)';
+        // Shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(x + 3, y + 3, w, h);
+
+        ctx.fillStyle = '#222';
         ctx.fillRect(x, y, w, h);
-        ctx.strokeStyle = isEscoba ? '#FFD700' : '#666';
-        ctx.lineWidth = isEscoba ? 2 : 1;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
         ctx.strokeRect(x, y, w, h);
 
-        ctx.fillStyle = isEscoba ? '#FFD700' : 'white';
+        ctx.fillStyle = '#ffd700';
         ctx.font = isEscoba ? '16px Minipixel' : '12px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

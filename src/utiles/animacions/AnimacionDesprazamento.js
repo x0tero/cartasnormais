@@ -2,8 +2,8 @@ import Animacion from '../Animacion.js';
 
 // Moves a card image smoothly from (comezoX, comezoY) to (destinoX, destinoY).
 export default class AnimacionDesprazamento extends Animacion {
-    constructor(assets, cartaAncho, cartaAlto, cartaId, comezoX, comezoY, destinoX, destinoY, enRemate) {
-        super(0.085, enRemate);
+    constructor(assets, cartaAncho, cartaAlto, cartaId, comezoX, comezoY, destinoX, destinoY, enRemate, velocidade = 0.045) {
+        super(velocidade, enRemate);
         this.assets = assets;
         this.cartaAncho = cartaAncho;
         this.cartaAlto = cartaAlto;

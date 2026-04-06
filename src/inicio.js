@@ -1,7 +1,6 @@
 import Director from './Director.js';
 import AssetLoader from './AssetLoader.js';
 import Menu from './escenas/Menu.js';
-import Intro from './escenas/Intro.js';
 
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
@@ -12,7 +11,7 @@ const loader = new AssetLoader();
 loader.loadAll().then((assets) => {
     const director = new Director(canvas, ctx, assets);
     
-    const escena = new Intro(director);
+    const escena = new Menu(director);
     director.apilarEscena(escena);
     director.executar();
 });
