@@ -4,6 +4,9 @@ import Brisca from './Brisca.js';
 import SeteEMedio from './SeteEMedio.js';
 import Cinquillo from './Cinquillo.js';
 import Presidente from './Presidente.js';
+import Mentiroso from './Mentiroso.js';
+import Tute from './Tute.js';
+import Mus from './Mus.js';
 import Boton from '../utiles/Boton.js';
 
 const CORES_IA = ['#e03030', '#3070e0', '#30b040'];
@@ -13,7 +16,7 @@ export default class ConfigXogo extends Escena {
         super(director);
 
         this.xogoTipo = xogoTipo;
-        this.numOponentes = xogoTipo === 'presidente' ? 3 : 1;
+        this.numOponentes = (xogoTipo === 'presidente' || xogoTipo === 'tute' || xogoTipo === 'mus') ? 3 : 1;
         this.puntosMeta = 10;
         this.victoriasMeta = 5;
         this.dificultades = ['medio', 'medio', 'medio'];
@@ -128,6 +131,18 @@ export default class ConfigXogo extends Escena {
                     this.director.cambiarEscena(new SeteEMedio(this.director, config));
                 } else if (this.xogoTipo === 'cinquillo') {
                     this.director.cambiarEscena(new Cinquillo(this.director, config));
+                } else if (this.xogoTipo === 'mentiroso') {
+                    this.director.cambiarEscena(new Mentiroso(this.director, config));
+                } else if (this.xogoTipo === 'tute') {
+                    config.numOponentes = 3;
+                    config.dificultades = this.dificultades.slice(0, 3);
+                    config.victoriasMeta = this.victoriasMeta;
+                    this.director.cambiarEscena(new Tute(this.director, config));
+                } else if (this.xogoTipo === 'mus') {
+                    config.numOponentes = 3;
+                    config.dificultades = this.dificultades.slice(0, 3);
+                    config.victoriasMeta = this.victoriasMeta;
+                    this.director.cambiarEscena(new Mus(this.director, config));
                 } else if (this.xogoTipo === 'presidente') {
                     config.numOponentes = 3; // Always 4 players
                     config.dificultades = this.dificultades.slice(0, 3);
@@ -155,7 +170,7 @@ export default class ConfigXogo extends Escena {
     }
 
     actualizar(entrada, dt) {
-        const isPresidente = this.xogoTipo === 'presidente';
+        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
 
         // Disable arrows at limits
         this.btnMenos.deshabilitado = this.numOponentes <= 1 || isPresidente;
@@ -212,10 +227,10 @@ export default class ConfigXogo extends Escena {
         ctx.fillStyle = '#FFD700';
         ctx.font = '22px Minipixel';
         ctx.textAlign = 'center';
-        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE' };
+        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE', mentiroso: 'MENTIROSO', tute: 'TUTE', mus: 'MUS' };
         ctx.fillText(titulos[this.xogoTipo] || 'ESCOBA', centerX, 60);
 
-        const isPresidente = this.xogoTipo === 'presidente';
+        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
 
         if (!isPresidente) {
             // Opponent count section

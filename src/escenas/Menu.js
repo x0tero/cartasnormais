@@ -52,6 +52,30 @@ export default class Menu extends Escena {
             { corTexto: 'white', tamanhoTexto: 14 }
         );
 
+        this.btnMentiroso = new Boton(
+            btnX, btnY += btnGap, btnW, btnH,
+            ['#2a6a5a', '#3a8a7a', '#1a4a3a'],
+            [], 'Mentiroso',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director, 'mentiroso')),
+            { corTexto: 'white', tamanhoTexto: 14 }
+        );
+
+        this.btnTute = new Boton(
+            btnX, btnY += btnGap, btnW, btnH,
+            ['#5a3a1a', '#7a5a3a', '#3a2a0a'],
+            [], 'Tute',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director, 'tute')),
+            { corTexto: 'white', tamanhoTexto: 14 }
+        );
+
+        this.btnMus = new Boton(
+            btnX, btnY += btnGap, btnW, btnH,
+            ['#3a5a3a', '#5a7a5a', '#2a3a2a'],
+            [], 'Mus',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director, 'mus')),
+            { corTexto: 'white', tamanhoTexto: 14 }
+        );
+
         this.btnOpcions = new Boton(
             btnX, btnY += btnGap, btnW, btnH,
             ['#555', '#777', '#333'],
@@ -67,6 +91,9 @@ export default class Menu extends Escena {
         this.btnSeteEMedio.actualizar(entrada, dt);
         this.btnCinquillo.actualizar(entrada, dt);
         this.btnPresidente.actualizar(entrada, dt);
+        this.btnMentiroso.actualizar(entrada, dt);
+        this.btnTute.actualizar(entrada, dt);
+        this.btnMus.actualizar(entrada, dt);
         this.btnOpcions.actualizar(entrada, dt);
 
         const hover = this.btnEscoba.estado === 'peneirar' ||
@@ -74,6 +101,9 @@ export default class Menu extends Escena {
                       this.btnSeteEMedio.estado === 'peneirar' ||
                       this.btnCinquillo.estado === 'peneirar' ||
                       this.btnPresidente.estado === 'peneirar' ||
+                      this.btnMentiroso.estado === 'peneirar' ||
+                      this.btnTute.estado === 'peneirar' ||
+                      this.btnMus.estado === 'peneirar' ||
                       this.btnOpcions.estado === 'peneirar';
         this.director.canvas.style.cursor = hover ? 'pointer' : 'default';
     }
@@ -95,6 +125,9 @@ export default class Menu extends Escena {
         this.btnSeteEMedio.debuxar(ctx);
         this.btnCinquillo.debuxar(ctx);
         this.btnPresidente.debuxar(ctx);
+        this.btnMentiroso.debuxar(ctx);
+        this.btnTute.debuxar(ctx);
+        this.btnMus.debuxar(ctx);
         this.btnOpcions.debuxar(ctx);
     }
 }
