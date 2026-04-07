@@ -3,6 +3,7 @@ import Xogo from './Xogo.js';
 import Brisca from './Brisca.js';
 import SeteEMedio from './SeteEMedio.js';
 import Cinquillo from './Cinquillo.js';
+import Presidente from './Presidente.js';
 import Boton from '../utiles/Boton.js';
 
 const CORES_IA = ['#e03030', '#3070e0', '#30b040'];
@@ -12,8 +13,9 @@ export default class ConfigXogo extends Escena {
         super(director);
 
         this.xogoTipo = xogoTipo;
-        this.numOponentes = 1;
+        this.numOponentes = xogoTipo === 'presidente' ? 3 : 1;
         this.puntosMeta = 10;
+        this.victoriasMeta = 5;
         this.dificultades = ['medio', 'medio', 'medio'];
 
         const DIFS = ['facil', 'medio', 'dificil'];
@@ -58,10 +60,28 @@ export default class ConfigXogo extends Escena {
             { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
         );
 
+        // Victories to win arrows (presidente only)
+        const vicY = 235;
+        this.btnVicMenos = new Boton(
+            centerX - 50, vicY, arrowW, arrowH,
+            ['#555', '#777', '#333', '#2a2a2a'],
+            [], '<',
+            () => { if (this.victoriasMeta > 5) this.victoriasMeta--; },
+            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+        );
+        this.btnVicMais = new Boton(
+            centerX + 20, vicY, arrowW, arrowH,
+            ['#555', '#777', '#333', '#2a2a2a'],
+            [], '>',
+            () => { if (this.victoriasMeta < 10) this.victoriasMeta++; },
+            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+        );
+
         // Difficulty arrows for each opponent (up to 3)
         this.difBtns = [];
+        const difBaseY = xogoTipo === 'presidente' ? 300 : 340;
         for (let i = 0; i < 3; i++) {
-            const y = 340 + i * 54;
+            const y = difBaseY + i * 54;
             const btnLeft = new Boton(
                 centerX - 80, y, arrowW, arrowH,
                 ['#555', '#777', '#333', '#2a2a2a'],
@@ -108,6 +128,11 @@ export default class ConfigXogo extends Escena {
                     this.director.cambiarEscena(new SeteEMedio(this.director, config));
                 } else if (this.xogoTipo === 'cinquillo') {
                     this.director.cambiarEscena(new Cinquillo(this.director, config));
+                } else if (this.xogoTipo === 'presidente') {
+                    config.numOponentes = 3; // Always 4 players
+                    config.dificultades = this.dificultades.slice(0, 3);
+                    config.victoriasMeta = this.victoriasMeta;
+                    this.director.cambiarEscena(new Presidente(this.director, config));
                 } else {
                     this.director.cambiarEscena(new Xogo(this.director, config));
                 }
@@ -130,17 +155,30 @@ export default class ConfigXogo extends Escena {
     }
 
     actualizar(entrada, dt) {
-        // Disable arrows at limits
-        this.btnMenos.deshabilitado = this.numOponentes <= 1;
-        this.btnMais.deshabilitado = this.numOponentes >= 3;
+        const isPresidente = this.xogoTipo === 'presidente';
 
-        this.btnMenos.actualizar(entrada, dt);
-        this.btnMais.actualizar(entrada, dt);
+        // Disable arrows at limits
+        this.btnMenos.deshabilitado = this.numOponentes <= 1 || isPresidente;
+        this.btnMais.deshabilitado = this.numOponentes >= 3 || isPresidente;
+
+        if (!isPresidente) {
+            this.btnMenos.actualizar(entrada, dt);
+            this.btnMais.actualizar(entrada, dt);
+        }
 
         this.btnPuntosMenos.deshabilitado = this.puntosMeta <= 10;
         this.btnPuntosMais.deshabilitado = this.puntosMeta >= 31;
-        this.btnPuntosMenos.actualizar(entrada, dt);
-        this.btnPuntosMais.actualizar(entrada, dt);
+        if (!isPresidente) {
+            this.btnPuntosMenos.actualizar(entrada, dt);
+            this.btnPuntosMais.actualizar(entrada, dt);
+        }
+
+        if (isPresidente) {
+            this.btnVicMenos.deshabilitado = this.victoriasMeta <= 5;
+            this.btnVicMais.deshabilitado = this.victoriasMeta >= 10;
+            this.btnVicMenos.actualizar(entrada, dt);
+            this.btnVicMais.actualizar(entrada, dt);
+        }
 
         for (let i = 0; i < this.numOponentes; i++) {
             const cur = this.DIFS.indexOf(this.dificultades[i]);
@@ -153,9 +191,11 @@ export default class ConfigXogo extends Escena {
         this.btnXogar.actualizar(entrada, dt);
         this.btnVolver.actualizar(entrada, dt);
 
-        const anyHover = [this.btnMenos, this.btnMais, this.btnPuntosMenos, this.btnPuntosMais, this.btnXogar, this.btnVolver,
+        const allBtns = [this.btnMenos, this.btnMais, this.btnPuntosMenos, this.btnPuntosMais,
+            this.btnVicMenos, this.btnVicMais, this.btnXogar, this.btnVolver,
             ...this.difBtns.slice(0, this.numOponentes).flatMap(b => [b.left, b.right])
-        ].some(b => b.estado === 'peneirar');
+        ];
+        const anyHover = allBtns.some(b => b.estado === 'peneirar');
         this.director.canvas.style.cursor = anyHover ? 'pointer' : 'default';
     }
 
@@ -172,42 +212,68 @@ export default class ConfigXogo extends Escena {
         ctx.fillStyle = '#FFD700';
         ctx.font = '22px Minipixel';
         ctx.textAlign = 'center';
-        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO' };
+        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE' };
         ctx.fillText(titulos[this.xogoTipo] || 'ESCOBA', centerX, 60);
 
-        // Opponent count section
-        ctx.fillStyle = 'white';
-        ctx.font = '13px Minipixel';
-        ctx.fillText('Numero de oponentes', centerX, 170);
+        const isPresidente = this.xogoTipo === 'presidente';
 
-        this.btnMenos.debuxar(ctx);
-        this.btnMais.debuxar(ctx);
+        if (!isPresidente) {
+            // Opponent count section
+            ctx.fillStyle = 'white';
+            ctx.font = '13px Minipixel';
+            ctx.fillText('Numero de oponentes', centerX, 170);
 
-        ctx.fillStyle = 'white';
-        ctx.font = '16px Minipixel';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.numOponentes.toString(), centerX, 190 + 12);
+            this.btnMenos.debuxar(ctx);
+            this.btnMais.debuxar(ctx);
 
-        // Points to win section
-        ctx.fillStyle = 'white';
-        ctx.font = '13px Minipixel';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'alphabetic';
-        ctx.fillText('Puntos para ganar', centerX, 238);
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.numOponentes.toString(), centerX, 190 + 12);
 
-        this.btnPuntosMenos.debuxar(ctx);
-        this.btnPuntosMais.debuxar(ctx);
+            // Points to win section
+            ctx.fillStyle = 'white';
+            ctx.font = '13px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('Puntos para ganar', centerX, 238);
 
-        ctx.fillStyle = 'white';
-        ctx.font = '16px Minipixel';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(this.puntosMeta.toString(), centerX, 250 + 12);
+            this.btnPuntosMenos.debuxar(ctx);
+            this.btnPuntosMais.debuxar(ctx);
+
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.puntosMeta.toString(), centerX, 250 + 12);
+        } else {
+            // Presidente: fixed 4 players notice
+            ctx.fillStyle = '#ccc';
+            ctx.font = '11px Minipixel';
+            ctx.fillText('4 xogadores (fixo)', centerX, 190);
+
+            // Victories to win
+            ctx.fillStyle = 'white';
+            ctx.font = '13px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillText('Victorias para ganar', centerX, 230);
+
+            this.btnVicMenos.debuxar(ctx);
+            this.btnVicMais.debuxar(ctx);
+
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Minipixel';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.victoriasMeta.toString(), centerX, 235 + 12);
+        }
 
         // Difficulty selectors
+        const difYStart = isPresidente ? 300 : 340;
         for (let i = 0; i < this.numOponentes; i++) {
-            const y = 340 + i * 54;
+            const y = difYStart + i * 54;
 
             ctx.fillStyle = '#ccc';
             ctx.font = '11px Minipixel';

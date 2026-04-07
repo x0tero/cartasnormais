@@ -7,27 +7,29 @@ export default class Menu extends Escena {
         super(director);
 
         const cw = this.director.canvas.width;
-        const btnW = 160, btnH = 40;
+        const btnW = 160, btnH = 36;
         const btnX = (cw - btnW) / 2;
+        const btnGap = 44;
+        let btnY = 250;
 
         this.btnEscoba = new Boton(
-            btnX, 280, btnW, btnH,
+            btnX, btnY, btnW, btnH,
             ['#8B4513', '#A0522D', '#6B3410'],
             [], 'Escoba',
             () => this.director.cambiarEscena(new ConfigXogo(this.director, 'escoba')),
-            { corTexto: 'white', tamanhoTexto: 16 }
+            { corTexto: 'white', tamanhoTexto: 14 }
         );
 
         this.btnBrisca = new Boton(
-            btnX, 340, btnW, btnH,
+            btnX, btnY += btnGap, btnW, btnH,
             ['#2a4a7a', '#3a5a9a', '#1a3a5a'],
             [], 'Brisca',
             () => this.director.cambiarEscena(new ConfigXogo(this.director, 'brisca')),
-            { corTexto: 'white', tamanhoTexto: 16 }
+            { corTexto: 'white', tamanhoTexto: 14 }
         );
 
         this.btnSeteEMedio = new Boton(
-            btnX, 400, btnW, btnH,
+            btnX, btnY += btnGap, btnW, btnH,
             ['#6a2a6a', '#8a3a8a', '#4a1a4a'],
             [], 'Sete e medio',
             () => this.director.cambiarEscena(new ConfigXogo(this.director, 'seteemedio')),
@@ -35,19 +37,27 @@ export default class Menu extends Escena {
         );
 
         this.btnCinquillo = new Boton(
-            btnX, 460, btnW, btnH,
+            btnX, btnY += btnGap, btnW, btnH,
             ['#6a6a2a', '#8a8a3a', '#4a4a1a'],
             [], 'Cinquillo',
             () => this.director.cambiarEscena(new ConfigXogo(this.director, 'cinquillo')),
-            { corTexto: 'white', tamanhoTexto: 16 }
+            { corTexto: 'white', tamanhoTexto: 14 }
+        );
+
+        this.btnPresidente = new Boton(
+            btnX, btnY += btnGap, btnW, btnH,
+            ['#6a2a2a', '#8a3a3a', '#4a1a1a'],
+            [], 'Presidente',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director, 'presidente')),
+            { corTexto: 'white', tamanhoTexto: 14 }
         );
 
         this.btnOpcions = new Boton(
-            btnX, 520, btnW, btnH,
+            btnX, btnY += btnGap, btnW, btnH,
             ['#555', '#777', '#333'],
             [], 'Opcions',
             () => {},
-            { corTexto: 'white', tamanhoTexto: 16 }
+            { corTexto: 'white', tamanhoTexto: 14 }
         );
     }
 
@@ -56,12 +66,14 @@ export default class Menu extends Escena {
         this.btnBrisca.actualizar(entrada, dt);
         this.btnSeteEMedio.actualizar(entrada, dt);
         this.btnCinquillo.actualizar(entrada, dt);
+        this.btnPresidente.actualizar(entrada, dt);
         this.btnOpcions.actualizar(entrada, dt);
 
         const hover = this.btnEscoba.estado === 'peneirar' ||
                       this.btnBrisca.estado === 'peneirar' ||
                       this.btnSeteEMedio.estado === 'peneirar' ||
                       this.btnCinquillo.estado === 'peneirar' ||
+                      this.btnPresidente.estado === 'peneirar' ||
                       this.btnOpcions.estado === 'peneirar';
         this.director.canvas.style.cursor = hover ? 'pointer' : 'default';
     }
@@ -82,6 +94,7 @@ export default class Menu extends Escena {
         this.btnBrisca.debuxar(ctx);
         this.btnSeteEMedio.debuxar(ctx);
         this.btnCinquillo.debuxar(ctx);
+        this.btnPresidente.debuxar(ctx);
         this.btnOpcions.debuxar(ctx);
     }
 }
