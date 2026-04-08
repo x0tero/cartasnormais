@@ -80,7 +80,7 @@ export default class Mentiroso extends Escena {
             ['#7a2a2a', '#9a3a3a', '#5a1a1a', '#444'],
             [], 'Mentiroso!',
             () => this.xogadorDesafiar(),
-            { tamanhoTexto: 9 }
+            { tamanhoTexto: 10 }
         );
 
         // Rank selection arrows
@@ -88,19 +88,19 @@ export default class Mentiroso extends Escena {
             CANVAS_W / 2 - 80, Y_BUTTONS, 24, bh,
             ['#555', '#777', '#333', '#2a2a2a'], [], '<',
             () => { this.rangoSel = this.rangoSel <= 1 ? 10 : this.rangoSel - 1; },
-            { corTexto: 'white', tamanhoTexto: 12, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
         this.btnRangoRight = new Boton(
             CANVAS_W / 2 + 56, Y_BUTTONS, 24, bh,
             ['#555', '#777', '#333', '#2a2a2a'], [], '>',
             () => { this.rangoSel = this.rangoSel >= 10 ? 1 : this.rangoSel + 1; },
-            { corTexto: 'white', tamanhoTexto: 12, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
         this.btnConfirmarRango = new Boton(
             CANVAS_W / 2 - 40, Y_BUTTONS - 30, 80, 24,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Confirmar',
             () => this.confirmarRango(),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
 
         // Cog / Pause
@@ -109,7 +109,7 @@ export default class Mentiroso extends Escena {
             6, 4, cogSize, cogSize,
             ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
             [], '\u2699', () => { this.pausado = true; },
-            { corTexto: '#fff', tamanhoTexto: 16 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         const popupW = 180, popupH = 120;
         const popupX = CANVAS_W / 2 - popupW / 2;
@@ -120,7 +120,7 @@ export default class Mentiroso extends Escena {
             pbx, popupY + 45, pbw, pbh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Continuar',
             () => { this.pausado = false; this._voltandoDePausa = true; },
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnVolverMenu = new Boton(
             pbx, popupY + 82, pbw, pbh,
@@ -571,7 +571,7 @@ export default class Mentiroso extends Escena {
     }
 
     debuxarInfoIAs(ctx) {
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         let x = 36;
@@ -596,7 +596,7 @@ export default class Mentiroso extends Escena {
         }
 
         ctx.fillStyle = 'white';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(`Pila: ${this.pila.length}`, CANVAS_W / 2, Y_PILE + CH + 14);
@@ -633,7 +633,7 @@ export default class Mentiroso extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 24);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(`Ti: ${this.mans[0]?.length || 0} cartas`, 8, Y_PLAYER_INFO + 13);
@@ -647,19 +647,19 @@ export default class Mentiroso extends Escena {
             this.btnConfirmarRango.debuxar(ctx);
 
             ctx.fillStyle = '#ffd700';
-            ctx.font = '14px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(NOMES_RANGO[this.rangoSel], CANVAS_W / 2, Y_BUTTONS + 13);
 
             ctx.fillStyle = '#ccc';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText('Escolle rango', CANVAS_W / 2, Y_BUTTONS - 38);
         } else if (this.estado === ESTADO.ELIXIR_CARTAS) {
             this.btnXogar.debuxar(ctx);
             ctx.fillStyle = '#ccc';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(`Selecciona 1-3 cartas (${NOMES_RANGO[this.rangoDeclarado]})`, CANVAS_W / 2, Y_BUTTONS - 8);
@@ -667,7 +667,7 @@ export default class Mentiroso extends Escena {
             this.btnXogar.debuxar(ctx);
             this.btnMentiroso.debuxar(ctx);
             ctx.fillStyle = '#ccc';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(`Xoga ${NOMES_RANGO[this.rangoDeclarado]} ou desafia`, CANVAS_W / 2, Y_BUTTONS - 8);
@@ -675,7 +675,7 @@ export default class Mentiroso extends Escena {
     }
 
     debuxarMsg(ctx) {
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         const textW = ctx.measureText(this.mensaxe).width;
         const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2;
@@ -714,7 +714,7 @@ export default class Mentiroso extends Escena {
         ctx.strokeRect(popX, popY, popW, popH);
 
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(this.ganador === 0 ? 'Gañaches!' : `${this.nomes[this.ganador]} gaña!`, popX + popW / 2, popY + 12);
@@ -744,7 +744,7 @@ export default class Mentiroso extends Escena {
         ctx.lineWidth = 2;
         ctx.strokeRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);

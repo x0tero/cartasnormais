@@ -11,7 +11,7 @@ export default class Boton {
         this.estado = 'normal';
         this.deshabilitado = false;
         this.corTexto = opcions.corTexto || 'black';
-        this.tamanhoTexto = opcions.tamanhoTexto || 12;
+        this.tamanhoTexto = opcions.tamanhoTexto || 10;
         this.instantaneo = opcions.instantaneo || false;
     }
 

@@ -74,7 +74,7 @@ export default class Cinquillo extends Escena {
             6, 22, cogSize, cogSize,
             ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
             [], '\u2699', () => { this.pausado = true; },
-            { corTexto: '#fff', tamanhoTexto: 16 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         const popupW = 180, popupH = 120;
         const popupX = CANVAS_W / 2 - popupW / 2;
@@ -85,7 +85,7 @@ export default class Cinquillo extends Escena {
             pbx, popupY + 45, pbw, pbh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Continuar',
             () => { this.pausado = false; this._voltandoDePausa = true; },
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnVolverMenu = new Boton(
             pbx, popupY + 82, pbw, pbh,
@@ -479,7 +479,7 @@ export default class Cinquillo extends Escena {
 
     debuxarTaboleiro(ctx) {
         // Suit labels
-        ctx.font = '8px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'middle';
 
@@ -555,13 +555,13 @@ export default class Cinquillo extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 24);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(`Ti: ${this.mans[0]?.length || 0} cartas`, 8, Y_PLAYER_INFO + 13);
 
         // IA info at the top
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         let infoX = 36;
@@ -578,7 +578,7 @@ export default class Cinquillo extends Escena {
     }
 
     debuxarMsg(ctx) {
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         const textW = ctx.measureText(this.mensaxe).width;
         const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2;
@@ -622,7 +622,7 @@ export default class Cinquillo extends Escena {
 
         // Title
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(this.ganador === 0 ? 'Gañaches!' : `${this.nomes[this.ganador]} gana!`, popX + popW / 2, popY + 12);
@@ -655,7 +655,7 @@ export default class Cinquillo extends Escena {
         ctx.lineWidth = 2;
         ctx.strokeRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);

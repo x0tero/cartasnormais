@@ -27,7 +27,7 @@ export default class NivelCompletado extends Escena {
         ctx.fillRect(0, 0, this.director.canvas.width, this.director.canvas.height);
 
         ctx.fillStyle = "#ff4444"; 
-        ctx.font = "20px Minipixel";
+        ctx.font = "10px Minipixel";
         ctx.textAlign = "center";
         ctx.fillText("¡VICTORIA!", this.director.canvas.width / 2, 200);
 

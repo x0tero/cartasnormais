@@ -139,7 +139,7 @@ export default class Mus extends Escena {
             CANVAS_W / 2 - 40, Y_BUTTONS, 80, bh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Descartar',
             () => this.xogadorDescartar(),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
 
         // Bidding buttons
@@ -147,31 +147,31 @@ export default class Mus extends Escena {
             CANVAS_W / 2 - 100, Y_BUTTONS, 60, bh,
             ['#555', '#777', '#333'], [], 'Paso',
             () => this.xogadorPaso(),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
         this.btnEnvido = new Boton(
             CANVAS_W / 2 - 30, Y_BUTTONS, 60, bh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Envido',
             () => this.xogadorEnvido(2),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
         this.btnOrdago = new Boton(
             CANVAS_W / 2 + 40, Y_BUTTONS, 60, bh,
             ['#7a2a2a', '#9a3a3a', '#5a1a1a'], [], 'Ordago',
             () => this.xogadorOrdago(),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
         this.btnVer = new Boton(
             CANVAS_W / 2 - 65, Y_BUTTONS, 60, bh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Ver',
             () => this.xogadorVer(),
-            { tamanhoTexto: 9, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
         this.btnNoQuero = new Boton(
             CANVAS_W / 2 + 5, Y_BUTTONS, 60, bh,
             ['#7a2a2a', '#9a3a3a', '#5a1a1a'], [], 'No quero',
             () => this.xogadorNoQuero(),
-            { tamanhoTexto: 8, corTexto: 'white' }
+            { tamanhoTexto: 10, corTexto: 'white' }
         );
 
         // Cog / pause
@@ -180,7 +180,7 @@ export default class Mus extends Escena {
             6, 4, cogSize, cogSize,
             ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
             [], '\u2699', () => { this.pausado = true; },
-            { corTexto: '#fff', tamanhoTexto: 16 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         const popupW = 180, popupH = 120;
         const popupX = CANVAS_W / 2 - popupW / 2;
@@ -191,7 +191,7 @@ export default class Mus extends Escena {
             pbx, popupY + 45, pbw, pbh2,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Continuar',
             () => { this.pausado = false; this._voltandoDePausa = true; },
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnVolverMenu = new Boton(
             pbx, popupY + 82, pbw, pbh2,
@@ -731,7 +731,7 @@ export default class Mus extends Escena {
     }
 
     debuxarInfoEquipos(ctx) {
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textBaseline = 'alphabetic';
 
         ctx.fillStyle = CORES_EQUIPO[0];
@@ -750,7 +750,7 @@ export default class Mus extends Escena {
         }
 
         // IA hand sizes
-        ctx.font = '8px Minipixel';
+        ctx.font = '10px Minipixel';
         for (let i = 1; i < 4; i++) {
             const eq = this.equipos[i];
             ctx.fillStyle = CORES_EQUIPO[eq];
@@ -785,7 +785,7 @@ export default class Mus extends Escena {
             const juego = calcularJuego(man);
             const pares = analizarPares(man);
             ctx.fillStyle = '#aaa';
-            ctx.font = '8px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             let info = `Valor: ${juego}`;
@@ -799,7 +799,7 @@ export default class Mus extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 24);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(`Ti (Eq.A) | Comp: ${this.nomes[2]} | Ronda ${this.ronda}`, 8, Y_PLAYER_INFO + 13);
@@ -812,14 +812,14 @@ export default class Mus extends Escena {
         } else if (this.estado === ESTADO.DESCARTE) {
             this.btnDescartar.debuxar(ctx);
             ctx.fillStyle = '#ccc';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText('Clic nas cartas para descartar', CANVAS_W / 2, Y_BUTTONS - 8);
         } else if (this.isLanceEstado()) {
             if (this.enviteAberto && this.enviteEquipo !== 0) {
                 ctx.fillStyle = '#ccc';
-                ctx.font = '9px Minipixel';
+                ctx.font = '10px Minipixel';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'alphabetic';
                 ctx.fillText(`Envido de ${this.envite}. Aceptas?`, CANVAS_W / 2, Y_BUTTONS - 8);
@@ -834,7 +834,7 @@ export default class Mus extends Escena {
     }
 
     debuxarMsg(ctx) {
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         const textW = ctx.measureText(this.mensaxe).width;
         const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2, y = 160;
@@ -872,7 +872,7 @@ export default class Mus extends Escena {
         ctx.strokeRect(popX, popY, popW, popH);
 
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
 
@@ -911,7 +911,7 @@ export default class Mus extends Escena {
         ctx.lineWidth = 2;
         ctx.strokeRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);

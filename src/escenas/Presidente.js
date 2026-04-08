@@ -78,21 +78,21 @@ export default class Presidente extends Escena {
             ['#2a7a2a', '#3a9a3a', '#1a5a1a', '#333'],
             [], 'Xogar',
             () => this.xogarSeleccion(),
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnPasar = new Boton(
             CANVAS_W / 2 + 15, Y_BUTTONS, 80, 28,
             ['#7a2a2a', '#9a3a3a', '#5a1a1a', '#333'],
             [], 'Pasar',
             () => this.pasarTurno(),
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnConfirmarIntercambio = new Boton(
             CANVAS_W / 2 - 50, Y_BUTTONS, 100, 28,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a', '#333'],
             [], 'Confirmar',
             () => this.confirmarIntercambio(),
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
 
         // Pause – placed below the 3 IA info bars (bottom of last bar ≈ 120)
@@ -101,7 +101,7 @@ export default class Presidente extends Escena {
             6, 124, cogSize, cogSize,
             ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
             [], '\u2699', () => { this.pausado = true; },
-            { corTexto: '#fff', tamanhoTexto: 16 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         const popupW = 180, popupH = 120;
         const popupX = CANVAS_W / 2 - popupW / 2;
@@ -112,7 +112,7 @@ export default class Presidente extends Escena {
             pbx, popupY + 45, pbw, pbh,
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'], [], 'Continuar',
             () => { this.pausado = false; this._voltandoDePausa = true; },
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnVolverMenu = new Boton(
             pbx, popupY + 82, pbw, pbh,
@@ -1080,14 +1080,14 @@ export default class Presidente extends Escena {
             // Card count
             const numCartas = this.mans[iaIdx].length;
             ctx.fillStyle = '#aaa';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.fillText(`${numCartas} cartas`, barX + 16, y + 16);
 
             // Role
             if (this.roles[iaIdx] !== -1) {
                 const roleIdx = this.roles[iaIdx];
                 ctx.fillStyle = CORES_ROLES[roleIdx];
-                ctx.font = '9px Minipixel';
+                ctx.font = '10px Minipixel';
                 ctx.textAlign = 'right';
                 ctx.fillText(ROLES[roleIdx], barX + barW - 6, y + 3);
             }
@@ -1095,7 +1095,7 @@ export default class Presidente extends Escena {
             // Finished indicator
             if (this.acabaron[iaIdx]) {
                 ctx.fillStyle = '#4a4';
-                ctx.font = '9px Minipixel';
+                ctx.font = '10px Minipixel';
                 ctx.textAlign = 'right';
                 const pos = this.ordeFinalizacion.indexOf(iaIdx) + 1;
                 ctx.fillText(`${pos}o lugar`, barX + barW - 6, y + 16);
@@ -1123,7 +1123,7 @@ export default class Presidente extends Escena {
 
             // Player name label above the pile
             ctx.fillStyle = play.xogador === 0 ? '#e0e0e0' : CORES_IA[play.xogador - 1];
-            ctx.font = '8px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(this.nomes[play.xogador], base.x + CW / 2, base.y - 4);
@@ -1144,7 +1144,7 @@ export default class Presidente extends Escena {
                              this.baza.cantidade === 2 ? 'parella' :
                              this.baza.cantidade === 3 ? 'trinca' : 'poker';
             ctx.fillStyle = '#888';
-            ctx.font = '8px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(`Requirido: ${cantText}`, CANVAS_W / 2, 155 + stackH + 12);
@@ -1156,7 +1156,7 @@ export default class Presidente extends Escena {
         if (this.baza.cantidade > 0 && this.estado === ESTADO.XOGANDO) {
             const stackH = (this.baza.cantidade - 1) * 16 + CH;
             const y = 155 + stackH + 28;
-            ctx.font = '8px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
 
@@ -1184,7 +1184,7 @@ export default class Presidente extends Escena {
 
         // Round info
         ctx.fillStyle = '#666';
-        ctx.font = '8px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
         ctx.fillText(`Ronda ${this.ronda}`, 34, 128);
@@ -1230,7 +1230,7 @@ export default class Presidente extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 24);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
 
@@ -1257,7 +1257,7 @@ export default class Presidente extends Escena {
 
             // Instruction text
             ctx.fillStyle = '#ffd700';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             const numStr = this.intercambioNumRequerido === 2 ? '2 cartas' : '1 carta';
@@ -1266,7 +1266,7 @@ export default class Presidente extends Escena {
     }
 
     debuxarMsg(ctx) {
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         const textW = ctx.measureText(this.mensaxe).width;
         const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2;
@@ -1308,7 +1308,7 @@ export default class Presidente extends Escena {
 
         // Title
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         const winner = this.ordeFinalizacion[0];
@@ -1327,7 +1327,7 @@ export default class Presidente extends Escena {
         // Victory counts
         y += 10;
         ctx.fillStyle = '#888';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.fillText(`Victorias (${this.victoriasMeta} para ganar):`, popX + popW / 2, y);
         y += 14;
         for (let i = 0; i < 4; i++) {
@@ -1365,7 +1365,7 @@ export default class Presidente extends Escena {
 
         // Title
         ctx.fillStyle = '#ffd700';
-        ctx.font = '16px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         const g = this.ganadorPartida;
@@ -1389,7 +1389,7 @@ export default class Presidente extends Escena {
         // Rounds played
         y += 8;
         ctx.fillStyle = '#888';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.fillText(`${this.ronda} rondas xogadas`, popX + popW / 2, y);
 
         ctx.textBaseline = 'alphabetic';
@@ -1411,7 +1411,7 @@ export default class Presidente extends Escena {
         ctx.lineWidth = 2;
         ctx.strokeRect(p.x, p.y, p.w, p.h);
         ctx.fillStyle = '#ffd700';
-        ctx.font = '14px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);

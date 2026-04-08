@@ -22,9 +22,7 @@ body {
     box-sizing: border-box;
     /* ... other styles ... */
 }
-/*
 canvas {
-    border: 4px solid #fff;
-    background-color: #87CEEB; 
+    image-rendering: pixelated;     /* Chrome / Edge / Safari */
+    image-rendering: crisp-edges;   /* Firefox */
 }
-*/

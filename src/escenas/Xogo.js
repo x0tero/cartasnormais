@@ -144,7 +144,7 @@ export default class Xogo extends Escena {
             ['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.6)'],
             [], '\u2699',
             () => { this.pausado = true; },
-            { corTexto: '#fff', tamanhoTexto: 16 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
 
         // Pause popup dimensions
@@ -160,7 +160,7 @@ export default class Xogo extends Escena {
             ['#2a7a2a', '#3a9a3a', '#1a5a1a'],
             [], 'Continuar',
             () => { this.pausado = false; this._voltandoDePausa = true; },
-            { corTexto: '#fff', tamanhoTexto: 12 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
         this.btnVolverMenu = new Boton(
             pbx, popupY + 82, pbw, pbh,
@@ -171,7 +171,7 @@ export default class Xogo extends Escena {
                     this.director.cambiarEscena(new m.default(this.director));
                 });
             },
-            { corTexto: '#fff', tamanhoTexto: 9 }
+            { corTexto: '#fff', tamanhoTexto: 10 }
         );
 
         // Dice roll state
@@ -889,7 +889,7 @@ export default class Xogo extends Escena {
 
         // Title
         ctx.fillStyle = '#ffd700';
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText('Quen empeza?', popX + popW / 2, popY + 10);
@@ -1191,7 +1191,7 @@ export default class Xogo extends Escena {
 
             // Title
             ctx.fillStyle = '#ffd700';
-            ctx.font = '14px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
             ctx.fillText('Pausa', p.x + p.w / 2, p.y + 12);
@@ -1219,7 +1219,7 @@ export default class Xogo extends Escena {
             ctx.fillRect(x, y, CW, CH);
             if (bocaArriba) {
                 ctx.fillStyle = '#000';
-                ctx.font = '9px Minipixel';
+                ctx.font = '10px Minipixel';
                 ctx.textAlign = 'center';
                 ctx.fillText(carta.puntos(), x + CW / 2, y + CH / 2);
             }
@@ -1248,7 +1248,7 @@ export default class Xogo extends Escena {
 
             // Info text
             ctx.fillStyle = '#e0e0e0';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(
@@ -1349,7 +1349,7 @@ export default class Xogo extends Escena {
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(0, Y_PLAYER_INFO, CANVAS_W, 18);
         ctx.fillStyle = '#e0e0e0';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'alphabetic';
         ctx.fillText(
@@ -1378,14 +1378,14 @@ export default class Xogo extends Escena {
 
             // Card count below deck
             ctx.fillStyle = 'white';
-            ctx.font = '9px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.fillText(`${r}`, deckX + CW / 2, deckY + CH + 12);
         }
 
         // Round indicator (top-right of play area)
         ctx.fillStyle = 'white';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'right';
         ctx.fillText(`Ronda ${this.ronda}`, CANVAS_W - 8, this.aiBottom + 16);
     }
@@ -1406,7 +1406,7 @@ export default class Xogo extends Escena {
         const ok = (total === 15);
 
         ctx.fillStyle = ok ? '#00ff00' : '#ffaa00';
-        ctx.font = '9px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.fillText(
             `${vMan} + ${sMesa} = ${total} ${ok ? '\u2713' : ''}`,
@@ -1417,7 +1417,7 @@ export default class Xogo extends Escena {
     // ── Floating message ──
     debuxarMsg(ctx) {
         const isEscoba = this.mensaxe.includes('ESCOBA');
-        ctx.font = isEscoba ? '16px Minipixel' : '12px Minipixel';
+        ctx.font = isEscoba ? '10px Minipixel' : '10px Minipixel';
         const textW = ctx.measureText(this.mensaxe).width;
         const w = Math.max(220, textW + 40), h = 34;
         const x = (CANVAS_W - w) / 2;
@@ -1434,7 +1434,7 @@ export default class Xogo extends Escena {
         ctx.strokeRect(x, y, w, h);
 
         ctx.fillStyle = '#ffd700';
-        ctx.font = isEscoba ? '16px Minipixel' : '12px Minipixel';
+        ctx.font = isEscoba ? '10px Minipixel' : '10px Minipixel';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(this.mensaxe, CANVAS_W / 2, y + h / 2);
@@ -1448,7 +1448,7 @@ export default class Xogo extends Escena {
 
         ctx.textAlign = 'center';
         ctx.fillStyle = '#FFD700';
-        ctx.font = '16px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.fillText(`Fin da Ronda ${this.ronda}`, CANVAS_W / 2, 30);
 
         let y = 55;
@@ -1459,7 +1459,7 @@ export default class Xogo extends Escena {
             const isPlayer = (i === 0);
 
             ctx.fillStyle = isPlayer ? '#4CAF50' : '#f44336';
-            ctx.font = '12px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.fillText(`\u2014 ${det.nome} \u2014`, CANVAS_W / 2, y);
             y += 18;
 
@@ -1481,7 +1481,7 @@ export default class Xogo extends Escena {
         // Overall scores
         y += 5;
         ctx.fillStyle = '#FFD700';
-        ctx.font = '12px Minipixel';
+        ctx.font = '10px Minipixel';
         let scoreText = `Ti ${this.puntosXogador}`;
         for (const ia of this.ias) {
             scoreText += ` \u2014 ${ia.nome} ${ia.puntos}`;
@@ -1507,7 +1507,7 @@ export default class Xogo extends Escena {
         const won = allScores[0].nome === 'Ti';
 
         ctx.textAlign = 'center';
-        ctx.font = '22px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.fillStyle = won ? '#FFD700' : '#f44336';
         ctx.fillText(
             won ? '\u00a1VICTORIA!' : 'DERROTA',
@@ -1515,14 +1515,14 @@ export default class Xogo extends Escena {
         );
 
         ctx.fillStyle = 'white';
-        ctx.font = '13px Minipixel';
+        ctx.font = '10px Minipixel';
         let y = CANVAS_H / 2 - 25;
         for (const s of allScores) {
             ctx.fillText(`${s.nome}: ${s.puntos} pts`, CANVAS_W / 2, y);
             y += 20;
         }
 
-        ctx.font = '11px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.fillText(`Rondas xogadas: ${this.ronda}`, CANVAS_W / 2, y + 10);
 
         this.btnMenu.y = Math.max(y + 40, CANVAS_H / 2 + 130);

@@ -7,6 +7,8 @@ import Presidente from './Presidente.js';
 import Mentiroso from './Mentiroso.js';
 import Tute from './Tute.js';
 import Mus from './Mus.js';
+import Chinchon from './Chinchon.js';
+import Agochado from './Agochado.js';
 import Boton from '../utiles/Boton.js';
 
 const CORES_IA = ['#e03030', '#3070e0', '#30b040'];
@@ -16,7 +18,8 @@ export default class ConfigXogo extends Escena {
         super(director);
 
         this.xogoTipo = xogoTipo;
-        this.numOponentes = (xogoTipo === 'presidente' || xogoTipo === 'tute' || xogoTipo === 'mus') ? 3 : 1;
+        this.numOponentes = (xogoTipo === 'presidente' || xogoTipo === 'tute' || xogoTipo === 'mus') ? 3 :
+                             xogoTipo === 'agochado' ? 3 : 1;
         this.puntosMeta = 10;
         this.victoriasMeta = 5;
         this.dificultades = ['medio', 'medio', 'medio'];
@@ -35,7 +38,7 @@ export default class ConfigXogo extends Escena {
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '<',
             () => { if (this.numOponentes > 1) this.numOponentes--; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
         this.btnMais = new Boton(
@@ -43,7 +46,7 @@ export default class ConfigXogo extends Escena {
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '>',
             () => { if (this.numOponentes < 3) this.numOponentes++; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
         // Points to win arrows
@@ -52,7 +55,7 @@ export default class ConfigXogo extends Escena {
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '<',
             () => { if (this.puntosMeta > 10) this.puntosMeta--; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
         this.btnPuntosMais = new Boton(
@@ -60,7 +63,7 @@ export default class ConfigXogo extends Escena {
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '>',
             () => { if (this.puntosMeta < 31) this.puntosMeta++; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
         // Victories to win arrows (presidente only)
@@ -70,19 +73,19 @@ export default class ConfigXogo extends Escena {
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '<',
             () => { if (this.victoriasMeta > 5) this.victoriasMeta--; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
         this.btnVicMais = new Boton(
             centerX + 20, vicY, arrowW, arrowH,
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '>',
             () => { if (this.victoriasMeta < 10) this.victoriasMeta++; },
-            { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+            { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
         // Difficulty arrows for each opponent (up to 3)
         this.difBtns = [];
-        const difBaseY = xogoTipo === 'presidente' ? 300 : 340;
+        const difBaseY = xogoTipo === 'presidente' ? 300 : ((xogoTipo === 'chinchon' || xogoTipo === 'agochado') ? 240 : 340);
         for (let i = 0; i < 3; i++) {
             const y = difBaseY + i * 54;
             const btnLeft = new Boton(
@@ -96,7 +99,7 @@ export default class ConfigXogo extends Escena {
                         if (cur > 0) this.dificultades[idx] = DIFS[cur - 1];
                     };
                 })(),
-                { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+                { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
             );
             const btnRight = new Boton(
                 centerX + 50, y, arrowW, arrowH,
@@ -109,7 +112,7 @@ export default class ConfigXogo extends Escena {
                         if (cur < DIFS.length - 1) this.dificultades[idx] = DIFS[cur + 1];
                     };
                 })(),
-                { corTexto: 'white', tamanhoTexto: 14, instantaneo: true }
+                { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
             );
             this.difBtns.push({ left: btnLeft, right: btnRight });
         }
@@ -148,11 +151,15 @@ export default class ConfigXogo extends Escena {
                     config.dificultades = this.dificultades.slice(0, 3);
                     config.victoriasMeta = this.victoriasMeta;
                     this.director.cambiarEscena(new Presidente(this.director, config));
+                } else if (this.xogoTipo === 'chinchon') {
+                    this.director.cambiarEscena(new Chinchon(this.director, config));
+                } else if (this.xogoTipo === 'agochado') {
+                    this.director.cambiarEscena(new Agochado(this.director, config));
                 } else {
                     this.director.cambiarEscena(new Xogo(this.director, config));
                 }
             },
-            { corTexto: 'white', tamanhoTexto: 14 }
+            { corTexto: 'white', tamanhoTexto: 10 }
         );
 
         // Back button
@@ -171,9 +178,12 @@ export default class ConfigXogo extends Escena {
 
     actualizar(entrada, dt) {
         const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
+        const isChinchon = this.xogoTipo === 'chinchon';
+        const isAgochado = this.xogoTipo === 'agochado';
+        const minOponentes = isAgochado ? 2 : 1;
 
         // Disable arrows at limits
-        this.btnMenos.deshabilitado = this.numOponentes <= 1 || isPresidente;
+        this.btnMenos.deshabilitado = this.numOponentes <= minOponentes || isPresidente;
         this.btnMais.deshabilitado = this.numOponentes >= 3 || isPresidente;
 
         if (!isPresidente) {
@@ -183,7 +193,7 @@ export default class ConfigXogo extends Escena {
 
         this.btnPuntosMenos.deshabilitado = this.puntosMeta <= 10;
         this.btnPuntosMais.deshabilitado = this.puntosMeta >= 31;
-        if (!isPresidente) {
+        if (!isPresidente && !isChinchon && !isAgochado) {
             this.btnPuntosMenos.actualizar(entrada, dt);
             this.btnPuntosMais.actualizar(entrada, dt);
         }
@@ -225,52 +235,61 @@ export default class ConfigXogo extends Escena {
 
         // Title
         ctx.fillStyle = '#FFD700';
-        ctx.font = '22px Minipixel';
+        ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
-        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE', mentiroso: 'MENTIROSO', tute: 'TUTE', mus: 'MUS' };
+        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE', mentiroso: 'MENTIROSO', tute: 'TUTE', mus: 'MUS', chinchon: 'CHINCHON', agochado: 'AGOCHADO' };
         ctx.fillText(titulos[this.xogoTipo] || 'ESCOBA', centerX, 60);
 
         const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
+        const isChinchon = this.xogoTipo === 'chinchon';
+        const isAgochado = this.xogoTipo === 'agochado';
 
         if (!isPresidente) {
             // Opponent count section
             ctx.fillStyle = 'white';
-            ctx.font = '13px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.fillText('Numero de oponentes', centerX, 170);
 
             this.btnMenos.debuxar(ctx);
             this.btnMais.debuxar(ctx);
 
             ctx.fillStyle = 'white';
-            ctx.font = '16px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.numOponentes.toString(), centerX, 190 + 12);
 
-            // Points to win section
-            ctx.fillStyle = 'white';
-            ctx.font = '13px Minipixel';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'alphabetic';
-            ctx.fillText('Puntos para ganar', centerX, 238);
+            if (!isChinchon && !isAgochado) {
+                // Points to win section
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Minipixel';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'alphabetic';
+                ctx.fillText('Puntos para ganar', centerX, 238);
 
-            this.btnPuntosMenos.debuxar(ctx);
-            this.btnPuntosMais.debuxar(ctx);
+                this.btnPuntosMenos.debuxar(ctx);
+                this.btnPuntosMais.debuxar(ctx);
 
-            ctx.fillStyle = 'white';
-            ctx.font = '16px Minipixel';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(this.puntosMeta.toString(), centerX, 250 + 12);
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Minipixel';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.puntosMeta.toString(), centerX, 250 + 12);
+            } else {
+                // Chinchon/Agochado: show elimination info
+                ctx.fillStyle = '#ccc';
+                ctx.font = '10px Minipixel';
+                ctx.fillText('Fin a 100 puntos', centerX, 225);
+            }
         } else {
             // Presidente: fixed 4 players notice
             ctx.fillStyle = '#ccc';
-            ctx.font = '11px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.fillText('4 xogadores (fixo)', centerX, 190);
 
             // Victories to win
             ctx.fillStyle = 'white';
-            ctx.font = '13px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText('Victorias para ganar', centerX, 230);
@@ -279,19 +298,19 @@ export default class ConfigXogo extends Escena {
             this.btnVicMais.debuxar(ctx);
 
             ctx.fillStyle = 'white';
-            ctx.font = '16px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(this.victoriasMeta.toString(), centerX, 235 + 12);
         }
 
         // Difficulty selectors
-        const difYStart = isPresidente ? 300 : 340;
+        const difYStart = isPresidente ? 300 : ((isChinchon || isAgochado) ? 240 : 340);
         for (let i = 0; i < this.numOponentes; i++) {
             const y = difYStart + i * 54;
 
             ctx.fillStyle = '#ccc';
-            ctx.font = '11px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'alphabetic';
             ctx.fillText(`Dificultade IA ${i + 1}`, centerX, y - 8);
@@ -301,7 +320,7 @@ export default class ConfigXogo extends Escena {
 
             const difText = { facil: 'Facil', medio: 'Medio', dificil: 'Dificil' };
             ctx.fillStyle = 'white';
-            ctx.font = '13px Minipixel';
+            ctx.font = '10px Minipixel';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText(difText[this.dificultades[i]], centerX, y + 12);

@@ -44,6 +44,8 @@ export default class Director {
         if (tempo_pasado > this.fpsIntervalo) {
             this.daquela = now - (tempo_pasado % this.fpsIntervalo);
 
+            this.ctx.imageSmoothingEnabled = false;
+
             const escenaActual = this.pila[this.pila.length - 1];
 
             escenaActual.actualizar(this.entrada, tempo_pasado);
