@@ -512,7 +512,7 @@ export default class SeteEMedio extends Escena {
                 for (let i = 1; i < playerIdx; i++) {
                     if (i !== this.bancaIdx) slot++;
                 }
-                const sx = 60 + cardIdx * (CW + 4);
+                const sx = 100 + cardIdx * (CW + 4);
                 return { x: sx, y: Y_PUNTOS_AREA + slot * (CH + 24) };
             }
         }

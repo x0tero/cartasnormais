@@ -9,6 +9,7 @@ import Tute from './Tute.js';
 import Mus from './Mus.js';
 import Chinchon from './Chinchon.js';
 import Agochado from './Agochado.js';
+import Cadrado from './Cadrado.js';
 import Boton from '../utiles/Boton.js';
 
 const CORES_IA = ['#e03030', '#3070e0', '#30b040'];
@@ -18,10 +19,10 @@ export default class ConfigXogo extends Escena {
         super(director);
 
         this.xogoTipo = xogoTipo;
-        this.numOponentes = (xogoTipo === 'presidente' || xogoTipo === 'tute' || xogoTipo === 'mus') ? 3 :
+        this.numOponentes = (xogoTipo === 'presidente' || xogoTipo === 'tute' || xogoTipo === 'mus' || xogoTipo === 'cadrado') ? 3 :
                              xogoTipo === 'agochado' ? 3 : 1;
         this.puntosMeta = 10;
-        this.victoriasMeta = 5;
+        this.victoriasMeta = xogoTipo === 'cadrado' ? 3 : 5;
         this.dificultades = ['medio', 'medio', 'medio'];
 
         const DIFS = ['facil', 'medio', 'dificil'];
@@ -37,15 +38,16 @@ export default class ConfigXogo extends Escena {
             centerX - 50, 190, arrowW, arrowH,
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '<',
-            () => { if (this.numOponentes > 1) this.numOponentes--; },
+            () => { if (this.numOponentes > 1) { this.numOponentes--; this._briscaDir = -1; } },
             { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
+        this._briscaDir = 0;
 
         this.btnMais = new Boton(
             centerX + 20, 190, arrowW, arrowH,
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '>',
-            () => { if (this.numOponentes < 3) this.numOponentes++; },
+            () => { if (this.numOponentes < 3) { this.numOponentes++; this._briscaDir = 1; } },
             { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
 
@@ -72,7 +74,7 @@ export default class ConfigXogo extends Escena {
             centerX - 50, vicY, arrowW, arrowH,
             ['#555', '#777', '#333', '#2a2a2a'],
             [], '<',
-            () => { if (this.victoriasMeta > 5) this.victoriasMeta--; },
+            () => { if (this.victoriasMeta > 3) this.victoriasMeta--; },
             { corTexto: 'white', tamanhoTexto: 10, instantaneo: true }
         );
         this.btnVicMais = new Boton(
@@ -155,6 +157,10 @@ export default class ConfigXogo extends Escena {
                     this.director.cambiarEscena(new Chinchon(this.director, config));
                 } else if (this.xogoTipo === 'agochado') {
                     this.director.cambiarEscena(new Agochado(this.director, config));
+                } else if (this.xogoTipo === 'cadrado') {
+                    config.numOponentes = 3;
+                    config.victoriasMeta = this.victoriasMeta;
+                    this.director.cambiarEscena(new Cadrado(this.director, config));
                 } else {
                     this.director.cambiarEscena(new Xogo(this.director, config));
                 }
@@ -177,10 +183,16 @@ export default class ConfigXogo extends Escena {
     }
 
     actualizar(entrada, dt) {
-        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
+        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus' || this.xogoTipo === 'cadrado';
         const isChinchon = this.xogoTipo === 'chinchon';
         const isAgochado = this.xogoTipo === 'agochado';
+        const isBrisca = this.xogoTipo === 'brisca';
         const minOponentes = isAgochado ? 2 : 1;
+
+        // Brisca: skip 2 opponents (3 players) — only 1 or 3 allowed
+        if (isBrisca && this.numOponentes === 2) {
+            this.numOponentes = this._briscaDir > 0 ? 3 : 1;
+        }
 
         // Disable arrows at limits
         this.btnMenos.deshabilitado = this.numOponentes <= minOponentes || isPresidente;
@@ -199,7 +211,7 @@ export default class ConfigXogo extends Escena {
         }
 
         if (isPresidente) {
-            this.btnVicMenos.deshabilitado = this.victoriasMeta <= 5;
+            this.btnVicMenos.deshabilitado = this.victoriasMeta <= 3;
             this.btnVicMais.deshabilitado = this.victoriasMeta >= 10;
             this.btnVicMenos.actualizar(entrada, dt);
             this.btnVicMais.actualizar(entrada, dt);
@@ -237,10 +249,10 @@ export default class ConfigXogo extends Escena {
         ctx.fillStyle = '#FFD700';
         ctx.font = '10px Minipixel';
         ctx.textAlign = 'center';
-        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE', mentiroso: 'MENTIROSO', tute: 'TUTE', mus: 'MUS', chinchon: 'CHINCHON', agochado: 'AGOCHADO' };
+        const titulos = { escoba: 'ESCOBA', brisca: 'BRISCA', seteemedio: 'SETE E MEDIO', cinquillo: 'CINQUILLO', presidente: 'PRESIDENTE', mentiroso: 'MENTIROSO', tute: 'TUTE', mus: 'MUS', chinchon: 'CHINCHON', agochado: 'AGOCHADO', cadrado: 'CADRADO' };
         ctx.fillText(titulos[this.xogoTipo] || 'ESCOBA', centerX, 60);
 
-        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus';
+        const isPresidente = this.xogoTipo === 'presidente' || this.xogoTipo === 'tute' || this.xogoTipo === 'mus' || this.xogoTipo === 'cadrado';
         const isChinchon = this.xogoTipo === 'chinchon';
         const isAgochado = this.xogoTipo === 'agochado';
 

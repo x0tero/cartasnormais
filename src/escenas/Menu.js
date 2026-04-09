@@ -9,8 +9,8 @@ export default class Menu extends Escena {
         const cw = this.director.canvas.width;
         const btnW = 160, btnH = 36;
         const btnX = (cw - btnW) / 2;
-        const btnGap = 32;
-        let btnY = 200;
+        const btnGap = 30;
+        let btnY = 190;
 
         this.btnEscoba = new Boton(
             btnX, btnY, btnW, btnH,
@@ -84,6 +84,14 @@ export default class Menu extends Escena {
             { corTexto: 'white', tamanhoTexto: 10 }
         );
 
+        this.btnCadrado = new Boton(
+            btnX, btnY += btnGap, btnW, btnH,
+            ['#5a4a2a', '#7a6a3a', '#3a3a1a'],
+            [], 'Cadrado',
+            () => this.director.cambiarEscena(new ConfigXogo(this.director, 'cadrado')),
+            { corTexto: 'white', tamanhoTexto: 10 }
+        );
+
         this.btnAgochado = new Boton(
             btnX, btnY += btnGap, btnW, btnH,
             ['#2a4a4a', '#3a6a6a', '#1a3a3a'],
@@ -111,6 +119,7 @@ export default class Menu extends Escena {
         this.btnTute.actualizar(entrada, dt);
         this.btnMus.actualizar(entrada, dt);
         this.btnChinchon.actualizar(entrada, dt);
+        this.btnCadrado.actualizar(entrada, dt);
         this.btnAgochado.actualizar(entrada, dt);
         this.btnOpcions.actualizar(entrada, dt);
 
@@ -123,6 +132,7 @@ export default class Menu extends Escena {
                       this.btnTute.estado === 'peneirar' ||
                       this.btnMus.estado === 'peneirar' ||
                       this.btnChinchon.estado === 'peneirar' ||
+                      this.btnCadrado.estado === 'peneirar' ||
                       this.btnAgochado.estado === 'peneirar' ||
                       this.btnOpcions.estado === 'peneirar';
         this.director.canvas.style.cursor = hover ? 'pointer' : 'default';
@@ -149,6 +159,7 @@ export default class Menu extends Escena {
         this.btnTute.debuxar(ctx);
         this.btnMus.debuxar(ctx);
         this.btnChinchon.debuxar(ctx);
+        this.btnCadrado.debuxar(ctx);
         this.btnAgochado.debuxar(ctx);
         this.btnOpcions.debuxar(ctx);
     }
